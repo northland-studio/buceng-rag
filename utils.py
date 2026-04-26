@@ -80,14 +80,20 @@ def clean_event_text(text: str) -> str:
     Returns:
         清洗后的文本
     """
-    # 去除多余空白
-    text = re.sub(r'\s+', ' ', text)
-    
     # 去除首尾空白
     text = text.strip()
     
-    # 去除多余的换行
+    # 去除多余的换行（保留最多两个连续换行）
     text = re.sub(r'\n{3,}', '\n\n', text)
+    
+    # 去除行内多余空白（不影响换行）
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        # 去除每行内的多余空白
+        cleaned_line = re.sub(r'[ \t]+', ' ', line)
+        cleaned_lines.append(cleaned_line)
+    text = '\n'.join(cleaned_lines)
     
     return text
 
@@ -107,12 +113,20 @@ def parse_references(analysis_text: str) -> List[str]:
     Returns:
         引用ID列表（去重）
     """
-    # 匹配引用模式
-    pattern = r'[【\[引用:\s*([^\]】]+)[\]】]'
-    matches = re.findall(pattern, analysis_text)
+    # 匹配引用模式 - 使用两种格式分别匹配
+    # 格式1: [引用: xxx]
+    pattern1 = r'\[引用:\s*([^\]]+)\]'
+    # 格式2: 【引用: xxx】
+    pattern2 = r'【引用:\s*([^】]+)】'
+    
+    matches1 = re.findall(pattern1, analysis_text)
+    matches2 = re.findall(pattern2, analysis_text)
+    
+    # 合并结果
+    all_matches = matches1 + matches2
     
     # 去重并清理
-    references = list(set(match.strip() for match in matches))
+    references = list(set(match.strip() for match in all_matches))
     
     logger.debug(f"从分析文本中提取到 {len(references)} 个引用")
     

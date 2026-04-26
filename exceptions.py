@@ -69,9 +69,10 @@ class EmbeddingError(BaseAppException):
     def __init__(
         self,
         message: str = "嵌入模型错误",
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        error_code: Optional[str] = "EMBEDDING_ERROR"
     ):
-        super().__init__(message, details, error_code="EMBEDDING_ERROR")
+        super().__init__(message, details, error_code=error_code)
 
 
 class ModelLoadError(EmbeddingError):
@@ -101,9 +102,10 @@ class KnowledgeBaseError(BaseAppException):
     def __init__(
         self,
         message: str = "知识库错误",
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        error_code: Optional[str] = "KNOWLEDGE_BASE_ERROR"
     ):
-        super().__init__(message, details, error_code="KNOWLEDGE_BASE_ERROR")
+        super().__init__(message, details, error_code=error_code)
 
 
 class CollectionNotFoundError(KnowledgeBaseError):
@@ -140,9 +142,10 @@ class LLMError(BaseAppException):
     def __init__(
         self,
         message: str = "LLM调用错误",
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        error_code: Optional[str] = "LLM_ERROR"
     ):
-        super().__init__(message, details, error_code="LLM_ERROR")
+        super().__init__(message, details, error_code=error_code)
 
 
 class APIConnectionError(LLMError):
@@ -191,9 +194,10 @@ class ValidationError(BaseAppException):
     def __init__(
         self,
         message: str = "数据验证失败",
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        error_code: Optional[str] = "VALIDATION_ERROR"
     ):
-        super().__init__(message, details, error_code="VALIDATION_ERROR")
+        super().__init__(message, details, error_code=error_code)
 
 
 class InputTooLongError(ValidationError):
@@ -223,9 +227,10 @@ class FileOperationError(BaseAppException):
     def __init__(
         self,
         message: str = "文件操作错误",
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        error_code: Optional[str] = "FILE_OPERATION_ERROR"
     ):
-        super().__init__(message, details, error_code="FILE_OPERATION_ERROR")
+        super().__init__(message, details, error_code=error_code)
 
 
 class FileNotFoundError(FileOperationError):
