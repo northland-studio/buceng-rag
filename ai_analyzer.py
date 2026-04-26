@@ -220,9 +220,20 @@ class AIDocumentAnalyzer:
         # 分割文本
         chunks = DocumentProcessor.split_text_into_chunks(text, chunk_size)
         
+        logger.info(f"文本分割完成，共{len(chunks)}块")
+        
+        # 如果没有分割出文本块，将整个文本作为一个块
+        if not chunks:
+            logger.warning("文本分割未产生文本块，将整个文本作为一个块处理")
+            chunks = [text]
+        
         cards = []
+        failed_chunks = []
+        
         for i, chunk in enumerate(chunks):
             try:
+                logger.info(f"正在处理文本块 {i+1}/{len(chunks)}")
+                
                 # 分析文本块
                 analysis = self.analyze_text(chunk)
                 
@@ -230,11 +241,28 @@ class AIDocumentAnalyzer:
                 card = self.generate_knowledge_card(chunk, analysis, f"{source_name}_part{i+1}")
                 
                 cards.append(card)
+                logger.info(f"文本块 {i+1} 处理成功")
                 
             except Exception as e:
                 logger.error(f"处理文本块 {i+1} 失败: {e}")
-                # 跳过失败的块
+                failed_chunks.append((i, chunk, str(e)))
+                # 不跳过，继续处理下一个块
                 continue
+        
+        # 如果所有AI分析都失败了，使用简单方法生成卡片
+        if not cards and failed_chunks:
+            logger.warning("所有AI分析都失败，使用简单方法生成卡片")
+            for i, chunk, error in failed_chunks:
+                # 生成基本卡片
+                card = {
+                    'id': f"{source_name}_simple_{i+1}",
+                    'title': f"{source_name} - 片段 {i+1}",
+                    'content': chunk[:500] if len(chunk) > 500 else chunk,
+                    'keywords': [],
+                    'source': source_name
+                }
+                cards.append(card)
+                logger.info(f"为文本块 {i+1} 生成基本卡片")
         
         logger.info(f"成功生成 {len(cards)} 张知识卡片")
         return cards
