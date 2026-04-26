@@ -9,7 +9,7 @@ sentence-transformers>=2.2.0
 torch>=2.0.0
 
 # LLM API
-openai>=1.0.0
+openai>=2.0.0
 
 # 配置管理
 python-dotenv>=1.0.0
