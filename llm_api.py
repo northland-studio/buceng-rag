@@ -2,7 +2,7 @@
 LLM API模块
 调用DeepSeek API生成分析报告
 """
-from typing import List, Dict, Optional, Generator
+from typing import List, Dict, Optional, Generator, Any
 from openai import OpenAI, APIError, APIConnectionError, APITimeoutError, RateLimitError
 from tenacity import (
     retry,
