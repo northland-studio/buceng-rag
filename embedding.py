@@ -3,6 +3,17 @@
 加载和管理本地嵌入模型，提供文本嵌入功能
 """
 import os
+
+# 在导入其他模块之前设置Hugging Face镜像源
+# 这样可以确保所有Hugging Face相关的库都使用镜像源
+try:
+    from config import settings
+    if hasattr(settings, 'HF_ENDPOINT') and settings.HF_ENDPOINT:
+        os.environ['HF_ENDPOINT'] = settings.HF_ENDPOINT
+        print(f"[INFO] 使用Hugging Face镜像源: {settings.HF_ENDPOINT}")
+except Exception:
+    pass  # 如果配置加载失败，继续使用默认源
+
 from typing import Optional, List, Union
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -49,11 +60,6 @@ class EmbeddingModel:
             return
         
         try:
-            # 设置Hugging Face镜像源（如果配置了）
-            if settings.HF_ENDPOINT:
-                os.environ['HF_ENDPOINT'] = settings.HF_ENDPOINT
-                logger.info(f"使用Hugging Face镜像源: {settings.HF_ENDPOINT}")
-            
             logger.info(f"正在加载嵌入模型: {settings.EMBEDDING_MODEL_NAME}")
             logger.info(f"运行设备: {settings.EMBEDDING_DEVICE}")
             
