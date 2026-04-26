@@ -1,7 +1,7 @@
 """
 Streamlit主界面
-Minecraft游戏社科分析台 - 增强版
-支持知识库管理和文档导入分析
+Minecraft游戏社科分析台 - 增强版（无emoji版）
+支持知识库管理、文档导入和AI自动分析
 """
 import streamlit as st
 from typing import List, Dict, Any, Optional
@@ -20,6 +20,8 @@ from exceptions import (
 import knowledge_base
 import llm_api
 import utils
+import document_processor
+import ai_analyzer
 
 logger = get_logger(__name__)
 
@@ -28,7 +30,7 @@ logger = get_logger(__name__)
 
 st.set_page_config(
     page_title="Minecraft游戏社科分析台",
-    page_icon="🎮",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
@@ -171,7 +173,7 @@ def init_session_state():
 
 def show_error(message: str, details: Optional[str] = None):
     """显示错误消息"""
-    st.error(f"❌ {message}")
+    st.error(f"错误: {message}")
     if details:
         with st.expander("查看详细错误信息"):
             st.code(details)
@@ -180,19 +182,19 @@ def show_error(message: str, details: Optional[str] = None):
 
 def show_success(message: str):
     """显示成功消息"""
-    st.success(f"✅ {message}")
+    st.success(f"成功: {message}")
     logger.info(message)
 
 
 def show_warning(message: str):
     """显示警告消息"""
-    st.warning(f"⚠️ {message}")
+    st.warning(f"警告: {message}")
     logger.warning(message)
 
 
 def show_info(message: str):
     """显示信息消息"""
-    st.info(f"ℹ️ {message}")
+    st.info(f"提示: {message}")
 
 
 # ============ 侧边栏 ============
@@ -201,13 +203,13 @@ def render_sidebar():
     """渲染侧边栏"""
     with st.sidebar:
         # 标题
-        st.title("🎮 Minecraft游戏社科分析台")
+        st.title("Minecraft游戏社科分析台")
         st.caption("基于RAG架构的社会学分析工具")
         
         st.divider()
         
         # 页面导航
-        st.subheader("📍 导航")
+        st.subheader("导航")
         page = st.radio(
             "选择页面",
             ["主页", "知识库管理", "文档导入分析", "系统设置"],
@@ -224,29 +226,29 @@ def render_sidebar():
         st.divider()
         
         # 快速操作
-        st.subheader("⚡ 快速操作")
+        st.subheader("快速操作")
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("➕ 添加卡片", use_container_width=True):
+            if st.button("添加卡片", use_container_width=True):
                 st.session_state.page = "知识库管理"
                 st.rerun()
         
         with col2:
-            if st.button("📄 导入文档", use_container_width=True):
+            if st.button("导入文档", use_container_width=True):
                 st.session_state.page = "文档导入分析"
                 st.rerun()
         
         st.divider()
         
         # 系统信息
-        st.caption(f"版本: v1.0.0")
+        st.caption(f"版本: v1.2.0")
         st.caption(f"模型: {settings.EMBEDDING_MODEL_NAME}")
 
 
 def render_knowledge_stats():
     """渲染知识库统计信息"""
-    st.subheader("📊 知识库统计")
+    st.subheader("知识库统计")
     
     try:
         kb = get_knowledge_base_instance()
@@ -279,7 +281,7 @@ def render_knowledge_stats():
 
 def render_home_page():
     """渲染主页"""
-    st.title("🏠 主页")
+    st.title("主页")
     st.markdown("---")
     
     # 欢迎信息
@@ -291,10 +293,10 @@ def render_home_page():
         本系统基于RAG（检索增强生成）架构，帮助您分析Minecraft游戏内的社会学现象。
         
         **主要功能：**
-        - 🎯 智能理论检索
-        - 🤖 AI分析生成
-        - 📚 知识库管理
-        - 📄 文档导入分析
+        - 智能理论检索
+        - AI分析生成
+        - 知识库管理
+        - 文档导入分析
         """)
     
     st.markdown("---")
@@ -309,7 +311,7 @@ def render_home_page():
 
 def render_event_input():
     """渲染事件输入区"""
-    st.subheader("📝 游戏事件描述")
+    st.subheader("游戏事件描述")
     
     # 事件文本输入
     event_text = st.text_area(
@@ -355,7 +357,7 @@ def render_event_input():
     
     # 提交按钮
     analyze_button = st.button(
-        "🚀 提交分析",
+        "提交分析",
         type="primary",
         use_container_width=True
     )
@@ -377,7 +379,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        status_text.text("🔍 正在检索相关理论...")
+        status_text.text("正在检索相关理论...")
         progress_bar.progress(30)
         
         # 检索理论卡片
@@ -394,14 +396,14 @@ def perform_analysis(event_text: str, k: int, temperature: float):
         
         # 显示检索到的卡片
         if cards:
-            with st.expander(f"📚 检索到 {len(cards)} 个相关理论", expanded=False):
+            with st.expander(f"检索到 {len(cards)} 个相关理论", expanded=False):
                 for i, card in enumerate(cards, 1):
                     st.markdown(f"**{i}. {card['title']}** (相似度: {card['similarity']:.2%})")
                     st.caption(card['content'])
                     st.caption(f"来源: {card['source']}")
                     st.divider()
         
-        status_text.text("🤖 正在生成分析...")
+        status_text.text("正在生成分析...")
         progress_bar.progress(70)
         
         # 生成分析
@@ -423,7 +425,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
             st.session_state.current_analysis = analysis
         
         progress_bar.progress(100)
-        status_text.text("✅ 分析完成！")
+        status_text.text("分析完成！")
         
         time.sleep(0.5)
         progress_bar.empty()
@@ -447,7 +449,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
 def render_analysis_result():
     """渲染分析结果区"""
     st.markdown("---")
-    st.subheader("📊 分析结果")
+    st.subheader("分析结果")
     
     # 显示当前分析
     st.markdown(st.session_state.current_analysis)
@@ -472,7 +474,7 @@ def render_referenced_cards():
         return
     
     st.markdown("---")
-    st.subheader("📖 引用的理论卡片")
+    st.subheader("引用的理论卡片")
     
     kb = get_knowledge_base_instance()
     
@@ -497,7 +499,7 @@ def render_referenced_cards():
 def render_rating_section(event_text: str):
     """渲染评分和保存区"""
     st.markdown("---")
-    st.subheader("⭐ 评价与保存")
+    st.subheader("评价与保存")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -505,7 +507,7 @@ def render_rating_section(event_text: str):
         rating = st.radio(
             "分析质量评分",
             options=[1, 2, 3],
-            format_func=lambda x: ["⭐ 差", "⭐⭐ 中", "⭐⭐⭐ 好"][x-1],
+            format_func=lambda x: ["差", "中", "好"][x-1],
             horizontal=True
         )
     
@@ -513,7 +515,7 @@ def render_rating_section(event_text: str):
         st.write("")
     
     with col3:
-        if st.button("💾 保存为黄金样本", type="primary", use_container_width=True):
+        if st.button("保存为黄金样本", type="primary", use_container_width=True):
             try:
                 # 保存到知识库
                 kb = get_knowledge_base_instance()
@@ -547,11 +549,11 @@ def render_rating_section(event_text: str):
 
 def render_knowledge_base_page():
     """渲染知识库管理页面"""
-    st.title("📚 知识库管理")
+    st.title("知识库管理")
     st.markdown("---")
     
     # 标签页
-    tab1, tab2, tab3 = st.tabs(["📋 卡片列表", "➕ 添加卡片", "📥 批量导入"])
+    tab1, tab2, tab3 = st.tabs(["卡片列表", "添加卡片", "批量导入"])
     
     with tab1:
         render_card_list()
@@ -601,7 +603,6 @@ def render_card_list():
             cards = kb.search_similar(search_query, k=50)
         else:
             # 否则获取所有卡片（需要实现）
-            # 这里暂时使用空列表，实际应该从ChromaDB获取所有卡片
             cards = []
             show_info("请使用搜索功能查找卡片")
         
@@ -640,11 +641,11 @@ def render_card_item(card: Dict[str, Any]):
         
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            if st.button("✏️ 编辑", key=f"edit_{card['id']}", use_container_width=True):
+            if st.button("编辑", key=f"edit_{card['id']}", use_container_width=True):
                 st.session_state.editing_card = card['id']
         
         with col2:
-            if st.button("🗑️ 删除", key=f"delete_{card['id']}", use_container_width=True):
+            if st.button("删除", key=f"delete_{card['id']}", use_container_width=True):
                 if kb.delete_card(card['id']):
                     show_success("卡片删除成功")
                     st.rerun()
@@ -707,7 +708,7 @@ def render_add_card_form():
                 placeholder="例如: 作者 (年份). 论文标题"
             )
         
-        submitted = st.form_submit_button("➕ 添加卡片", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("添加卡片", type="primary", use_container_width=True)
         
         if submitted:
             # 验证必填字段
@@ -767,7 +768,7 @@ def render_batch_import():
                         st.caption(card.get('content', 'N/A')[:100] + "...")
                         st.divider()
                 
-                if st.button("📥 确认导入", type="primary", use_container_width=True):
+                if st.button("确认导入", type="primary", use_container_width=True):
                     try:
                         kb = get_knowledge_base_instance()
                         count = kb.add_cards(cards)
@@ -784,7 +785,7 @@ def render_batch_import():
     
     # 模板下载
     st.markdown("---")
-    st.subheader("📄 下载模板")
+    st.subheader("下载模板")
     
     template = [
         {
@@ -797,7 +798,7 @@ def render_batch_import():
     ]
     
     st.download_button(
-        label="📥 下载JSON模板",
+        label="下载JSON模板",
         data=json.dumps(template, ensure_ascii=False, indent=2),
         file_name="card_template.json",
         mime="application/json",
@@ -809,11 +810,11 @@ def render_batch_import():
 
 def render_document_import_page():
     """渲染文档导入分析页面"""
-    st.title("📄 文档导入分析")
+    st.title("文档导入分析")
     st.markdown("---")
     
     # 标签页
-    tab1, tab2 = st.tabs(["📤 上传文档", "📋 文档列表"])
+    tab1, tab2 = st.tabs(["上传文档", "文档列表"])
     
     with tab1:
         render_document_upload()
@@ -829,9 +830,9 @@ def render_document_upload():
     # 文件上传
     uploaded_files = st.file_uploader(
         "上传文档文件",
-        type=['txt', 'md', 'json'],
+        type=['txt', 'md', 'json', 'pdf', 'docx'],
         accept_multiple_files=True,
-        help="支持格式: TXT, Markdown, JSON"
+        help="支持格式: TXT, Markdown, JSON, PDF, DOCX"
     )
     
     if uploaded_files:
@@ -839,25 +840,35 @@ def render_document_upload():
         
         # 显示文件列表
         for file in uploaded_files:
-            with st.expander(f"📄 {file.name}", expanded=False):
+            with st.expander(f"{file.name}", expanded=False):
                 # 读取文件内容
-                content = file.read().decode('utf-8')
-                file.seek(0)  # 重置文件指针
-                
-                # 显示文件信息
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    st.metric("文件大小", f"{len(content)} 字符")
-                with col2:
-                    st.metric("行数", len(content.split('\n')))
-                
-                # 显示内容预览
-                st.text_area(
-                    "内容预览",
-                    value=content[:500] + "..." if len(content) > 500 else content,
-                    height=200,
-                    disabled=True
-                )
+                try:
+                    # 根据文件类型处理
+                    if file.name.endswith('.pdf'):
+                        text = document_processor.extract_text_from_uploaded_file(file)
+                    elif file.name.endswith('.docx'):
+                        text = document_processor.extract_text_from_uploaded_file(file)
+                    else:
+                        content = file.read().decode('utf-8')
+                        file.seek(0)
+                        text = content
+                    
+                    # 显示文件信息
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        st.metric("文件大小", f"{len(text)} 字符")
+                    with col2:
+                        st.metric("行数", len(text.split('\n')))
+                    
+                    # 显示内容预览
+                    st.text_area(
+                        "内容预览",
+                        value=text[:500] + "..." if len(text) > 500 else text,
+                        height=200,
+                        disabled=True
+                    )
+                except Exception as e:
+                    show_error(f"文件读取失败: {file.name}", str(e))
         
         # 分析选项
         st.markdown("---")
@@ -867,73 +878,116 @@ def render_document_upload():
         with col1:
             analysis_mode = st.radio(
                 "分析模式",
-                ["批量分析", "单独分析", "合并分析"],
-                help="批量分析：每个文档单独分析\n单独分析：选择特定文档分析\n合并分析：合并所有文档后分析"
+                ["AI自动分析", "简单分割", "手动处理"],
+                help="AI自动分析：使用AI分析内容并生成知识卡片\n简单分割：按段落分割文本\n手动处理：仅上传不处理"
             )
         
         with col2:
             auto_import = st.checkbox(
                 "自动导入到知识库",
-                help="将文档内容自动提取并导入为理论卡片"
+                value=True,
+                help="将处理结果自动导入到知识库"
+            )
+        
+        # 高级选项
+        with st.expander("高级选项", expanded=False):
+            chunk_size = st.slider(
+                "文本块大小",
+                min_value=200,
+                max_value=2000,
+                value=500,
+                step=100,
+                help="文本分割的块大小"
+            )
+            
+            enable_ai_analysis = st.checkbox(
+                "启用AI深度分析",
+                value=True,
+                help="使用AI分析每个文本块并提取关键信息"
             )
         
         # 开始分析按钮
-        if st.button("🚀 开始分析", type="primary", use_container_width=True):
-            perform_document_analysis(uploaded_files, analysis_mode, auto_import)
+        if st.button("开始处理", type="primary", use_container_width=True):
+            perform_document_analysis(uploaded_files, analysis_mode, auto_import, chunk_size, enable_ai_analysis)
 
 
-def perform_document_analysis(files: List, mode: str, auto_import: bool):
+def perform_document_analysis(
+    files: List,
+    mode: str,
+    auto_import: bool,
+    chunk_size: int,
+    enable_ai_analysis: bool
+):
     """执行文档分析"""
     try:
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         kb = get_knowledge_base_instance()
+        all_cards = []
         
         for i, file in enumerate(files):
-            status_text.text(f"正在处理: {file.name}")
+            status_text.text(f"正在处理: {file.name} ({i+1}/{len(files)})")
             progress_bar.progress((i + 1) / len(files) * 100)
             
-            # 读取文件内容
-            content = file.read().decode('utf-8')
-            file.seek(0)
-            
-            # 清洗文本
-            content = utils.clean_event_text(content)
-            
-            # 如果选择自动导入，将内容作为理论卡片导入
-            if auto_import:
-                # 简单的分割逻辑（实际应用中应该更智能）
-                paragraphs = content.split('\n\n')
+            try:
+                # 提取文本
+                if file.name.endswith('.pdf') or file.name.endswith('.docx'):
+                    text = document_processor.extract_text_from_uploaded_file(file)
+                else:
+                    text = file.read().decode('utf-8')
+                    file.seek(0)
                 
-                cards = []
-                for j, para in enumerate(paragraphs):
-                    if len(para.strip()) > 50:  # 忽略太短的段落
-                        card = {
-                            'id': f"{file.name}_para_{j}",
-                            'title': f"{file.name} - 段落 {j+1}",
-                            'content': para.strip(),
-                            'keywords': [],
-                            'source': file.name
-                        }
-                        cards.append(card)
+                # 根据模式处理
+                if mode == "AI自动分析" and enable_ai_analysis:
+                    # 使用AI分析
+                    status_text.text(f"AI分析中: {file.name}")
+                    cards = ai_analyzer.analyze_document_with_ai(text, file.name)
+                    
+                elif mode == "简单分割":
+                    # 简单分割
+                    cards = document_processor.process_document_for_knowledge_base(
+                        text, file.name, chunk_size
+                    )
+                    
+                else:
+                    # 手动处理，不生成卡片
+                    cards = []
+                    show_info(f"文件 {file.name} 已上传，请手动处理")
                 
-                if cards:
-                    count = kb.add_cards(cards)
-                    logger.info(f"从 {file.name} 导入了 {count} 张卡片")
-            
-            # 如果是分析模式，调用LLM进行分析
-            if mode != "批量分析":
-                # 这里可以添加文档分析逻辑
-                pass
+                all_cards.extend(cards)
+                
+            except Exception as e:
+                show_error(f"处理文件 {file.name} 失败", str(e))
+                continue
+        
+        # 自动导入
+        if auto_import and all_cards:
+            status_text.text("正在导入到知识库...")
+            count = kb.add_cards(all_cards)
+            show_success(f"成功处理 {len(files)} 个文档，导入 {count} 张卡片")
+        else:
+            show_success(f"成功处理 {len(files)} 个文档，生成 {len(all_cards)} 张卡片")
         
         progress_bar.empty()
         status_text.empty()
         
-        show_success(f"成功处理 {len(files)} 个文档")
-        
-        if auto_import:
-            show_info("文档内容已导入到知识库")
+        # 显示生成的卡片
+        if all_cards and not auto_import:
+            with st.expander("查看生成的卡片", expanded=False):
+                for i, card in enumerate(all_cards[:10], 1):
+                    st.markdown(f"**{i}. {card.get('title', 'N/A')}**")
+                    st.caption(card.get('content', 'N/A')[:200] + "...")
+                    st.divider()
+                
+                if len(all_cards) > 10:
+                    st.info(f"还有 {len(all_cards) - 10} 张卡片未显示")
+                
+                # 手动导入按钮
+                if st.button("导入所有卡片", type="primary"):
+                    count = kb.add_cards(all_cards)
+                    show_success(f"成功导入 {count} 张卡片")
+                    st.rerun()
     
     except Exception as e:
         show_error("文档分析失败", str(e))
@@ -953,7 +1007,7 @@ def render_document_list():
 
 def render_settings_page():
     """渲染系统设置页面"""
-    st.title("⚙️ 系统设置")
+    st.title("系统设置")
     st.markdown("---")
     
     # 系统信息
@@ -1008,7 +1062,7 @@ def render_settings_page():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("📤 导出黄金样本", use_container_width=True):
+        if st.button("导出黄金样本", use_container_width=True):
             try:
                 kb = get_knowledge_base_instance()
                 count = kb.export_golden_samples(settings.GOLDEN_SAMPLES_FILE)
@@ -1020,12 +1074,12 @@ def render_settings_page():
                 show_error("导出失败", str(e))
     
     with col2:
-        if st.button("🗑️ 清空知识库", use_container_width=True):
+        if st.button("清空知识库", use_container_width=True):
             if st.checkbox("确认清空"):
                 show_warning("此操作不可恢复！")
     
     with col3:
-        if st.button("🔄 重置系统", use_container_width=True):
+        if st.button("重置系统", use_container_width=True):
             show_warning("此操作将重置所有设置")
 
 
