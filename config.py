@@ -40,6 +40,10 @@ class Settings(BaseSettings):
         default="cpu",
         description="嵌入模型运行设备 (cpu/cuda)"
     )
+    HF_ENDPOINT: Optional[str] = Field(
+        default=None,
+        description="Hugging Face镜像源地址（国内推荐：https://hf-mirror.com）"
+    )
     
     # ChromaDB 配置
     CHROMA_PERSIST_DIR: str = Field(

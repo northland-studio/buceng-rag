@@ -2,6 +2,7 @@
 嵌入模型模块
 加载和管理本地嵌入模型，提供文本嵌入功能
 """
+import os
 from typing import Optional, List, Union
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -48,6 +49,11 @@ class EmbeddingModel:
             return
         
         try:
+            # 设置Hugging Face镜像源（如果配置了）
+            if settings.HF_ENDPOINT:
+                os.environ['HF_ENDPOINT'] = settings.HF_ENDPOINT
+                logger.info(f"使用Hugging Face镜像源: {settings.HF_ENDPOINT}")
+            
             logger.info(f"正在加载嵌入模型: {settings.EMBEDDING_MODEL_NAME}")
             logger.info(f"运行设备: {settings.EMBEDDING_DEVICE}")
             
