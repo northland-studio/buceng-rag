@@ -1,0 +1,58 @@
+[
+  {
+    "id": "tragedy_of_commons_01",
+    "title": "公地悲剧",
+    "content": "当多个个体共同使用一种稀缺资源时，个体理性导致资源枯竭。在Minecraft中常见于公共矿道、农田被过度开采且无人维护。个体追求短期利益最大化，忽视长期集体利益，最终导致资源耗尽。解决方案包括私有化、政府管制或社区自治。",
+    "keywords": ["公共资源", "个体理性", "资源枯竭", "集体行动"],
+    "source": "Hardin, G. (1968). The Tragedy of the Commons. Science, 162(3859), 1243-1248."
+  },
+  {
+    "id": "social_contract_01",
+    "title": "社会契约论",
+    "content": "社会成员通过契约建立秩序，放弃部分自由换取保护。在Minecraft服务器中，玩家通过同意遵守规则来获得服务器保护和服务。规则的制定和执行体现了集体意志，违约行为会受到社区制裁。契约的有效性依赖于参与者的共识。",
+    "keywords": ["契约", "秩序", "规则", "共识"],
+    "source": "Rousseau, J. J. (1762). The Social Contract."
+  },
+  {
+    "id": "collective_action_01",
+    "title": "集体行动逻辑",
+    "content": "理性个体倾向于搭便车，导致集体行动困难。在Minecraft社区中，公共设施建设常面临参与不足问题。需要通过选择性激励、强制手段或道德约束来促进合作。小群体比大群体更容易达成集体行动。",
+    "keywords": ["搭便车", "集体行动", "选择性激励", "合作困境"],
+    "source": "Olson, M. (1965). The Logic of Collective Action."
+  },
+  {
+    "id": "social_capital_01",
+    "title": "社会资本理论",
+    "content": "社会网络、信任和规范构成社会资本，促进合作与发展。在Minecraft社区中，玩家间的信任关系、互助网络和共同规范是社区繁荣的基础。社会资本的积累需要长期互动，但容易因背叛行为而损耗。",
+    "keywords": ["信任", "社会网络", "规范", "合作"],
+    "source": "Putnam, R. D. (2000). Bowling Alone: The Collapse and Revival of American Community."
+  },
+  {
+    "id": "game_theory_01",
+    "title": "博弈论基础",
+    "content": "分析策略互动中个体决策的理论框架。在Minecraft中，玩家间的资源争夺、领土纠纷等都可视为博弈过程。囚徒困境解释了合作难以达成的原因，重复博弈则提供了合作的可能性。纳什均衡描述了博弈的稳定状态。",
+    "keywords": ["博弈", "策略", "纳什均衡", "囚徒困境"],
+    "source": "Nash, J. (1950). Equilibrium Points in N-Person Games. Proceedings of the National Academy of Sciences."
+  },
+  {
+    "id": "institutional_theory_01",
+    "title": "制度主义",
+    "content": "制度作为游戏规则塑造社会行为。在Minecraft服务器中，正式制度（服务器规则）和非正式制度（社区习俗）共同规范玩家行为。制度的变迁影响社区发展路径，有效的制度设计能降低交易成本、促进合作。",
+    "keywords": ["制度", "规则", "制度变迁", "交易成本"],
+    "source": "North, D. C. (1990). Institutions, Institutional Change and Economic Performance."
+  },
+  {
+    "id": "social_norms_01",
+    "title": "社会规范理论",
+    "content": "社会规范是通过社会化过程形成的非正式行为准则。在Minecraft社区中，玩家自发形成的规范如'不偷窃'、'尊重他人建筑'等，通过同伴压力和声誉机制执行。规范的内化程度影响其有效性。",
+    "keywords": ["规范", "社会化", "同伴压力", "声誉机制"],
+    "source": "Elster, J. (1989). Social Norms and Economic Theory. Journal of Economic Perspectives."
+  },
+  {
+    "id": "resource_management_01",
+    "title": "公共资源治理",
+    "content": "公共资源可以通过社区自治实现可持续管理。在Minecraft中，玩家社区通过制定规则、建立监督机制、实施惩罚来管理公共资源。成功的治理需要清晰的边界、参与式决策、有效的监督和分级制裁。",
+    "keywords": ["公共资源", "治理", "社区自治", "可持续管理"],
+    "source": "Ostrom, E. (1990). Governing the Commons: The Evolution of Institutions for Collective Action."
+  }
+]
