@@ -380,7 +380,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
         status_text = st.empty()
         
         status_text.text("正在检索相关理论...")
-        progress_bar.progress(30)
+        progress_bar.progress(0.3)
         
         # 检索理论卡片
         kb = get_knowledge_base_instance()
@@ -389,7 +389,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
         if not cards:
             show_warning("未找到相关理论卡片，分析可能不够准确")
         
-        progress_bar.progress(50)
+        progress_bar.progress(0.5)
         
         # 保存检索结果
         st.session_state.current_cards = cards
@@ -404,7 +404,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
                     st.divider()
         
         status_text.text("正在生成分析...")
-        progress_bar.progress(70)
+        progress_bar.progress(0.7)
         
         # 生成分析
         if st.session_state.streaming_enabled:
@@ -424,7 +424,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
             analysis = llm_api.generate_analysis(event_text, cards, temperature)
             st.session_state.current_analysis = analysis
         
-        progress_bar.progress(100)
+        progress_bar.progress(1.0)
         status_text.text("分析完成！")
         
         time.sleep(0.5)
@@ -928,7 +928,7 @@ def perform_document_analysis(
         
         for i, file in enumerate(files):
             status_text.text(f"正在处理: {file.name} ({i+1}/{len(files)})")
-            progress_bar.progress((i + 1) / len(files) * 100)
+            progress_bar.progress((i + 1) / len(files))
             
             try:
                 # 提取文本
