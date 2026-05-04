@@ -58,6 +58,14 @@ class Settings(BaseSettings):
         default="golden_samples",
         description="黄金样本集合名称"
     )
+    HISTORY_COLLECTION: str = Field(
+        default="history_records",
+        description="历史资料集合名称"
+    )
+    MAX_HISTORY_RESULTS: int = Field(
+        default=5,
+        description="历史资料检索返回的最大结果数"
+    )
     
     # 应用配置
     MAX_INPUT_LENGTH: int = Field(
