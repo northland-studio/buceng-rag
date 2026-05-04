@@ -22,6 +22,7 @@ import llm_api
 import utils
 import document_processor
 import ai_analyzer
+import document_exporter
 
 logger = get_logger(__name__)
 
@@ -29,12 +30,12 @@ logger = get_logger(__name__)
 # ============ 页面配置 ============
 
 st.set_page_config(
-    page_title="Minecraft游戏社科分析台",
-    page_icon="",
+    page_title="不曾社科理论RAG分析系统",
+    page_icon="EB4FD5019E869EAB2BE67789CAB7F865.png",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'About': "Minecraft游戏社科分析台 - 基于RAG架构的社会学分析工具"
+        'About': "不曾社科理论RAG分析系统 - 基于RAG架构的社会科学分析工具 | 北域工作室"
     }
 )
 
@@ -167,6 +168,12 @@ def init_session_state():
     
     if 'editing_card' not in st.session_state:
         st.session_state.editing_card = None
+    
+    if 'last_event_text' not in st.session_state:
+        st.session_state.last_event_text = None
+    
+    if 'current_history' not in st.session_state:
+        st.session_state.current_history = []
 
 
 # ============ 错误处理 ============
@@ -202,9 +209,14 @@ def show_info(message: str):
 def render_sidebar():
     """渲染侧边栏"""
     with st.sidebar:
-        # 标题
-        st.title("Minecraft游戏社科分析台")
-        st.caption("基于RAG架构的社会学分析工具")
+        try:
+            st.image("EB4FD5019E869EAB2BE67789CAB7F865.png", width=80)
+        except:
+            pass
+        st.title("不曾社科理论RAG分析系统")
+        st.caption("Buceng Social Science RAG Analysis System")
+        st.caption("基于RAG架构的社会科学分析工具")
+        st.caption("开发者: 北域工作室")
         
         st.divider()
         
@@ -264,12 +276,22 @@ def render_knowledge_stats():
         
         with col2:
             st.metric(
+                "历史资料",
+                stats.get('history_records', 0),
+                delta=None
+            )
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            st.metric(
                 "黄金样本",
                 stats.get('golden_samples', 0),
                 delta=None
             )
         
-        # 进度条
+        with col4:
+            st.write("")
+        
         if stats.get('total_cards', 0) > 0:
             st.progress(min(stats.get('total_cards', 0) / 100, 1.0))
         
@@ -311,18 +333,34 @@ def render_home_page():
 
 def render_event_input():
     """渲染事件输入区"""
-    st.subheader("游戏事件描述")
+    st.subheader("事件/现象描述")
     
-    # 事件文本输入
+    analysis_mode = st.radio(
+        "分析模式",
+        options=["minecraft", "general"],
+        format_func=lambda x: "Minecraft游戏分析" if x == "minecraft" else "普通社科分析",
+        horizontal=True,
+        help="Minecraft游戏分析：分析游戏内社会现象\n普通社科分析：分析现实社会现象",
+        key="analysis_mode_selector"
+    )
+    
+    st.session_state.analysis_mode = analysis_mode
+    
+    if analysis_mode == "minecraft":
+        placeholder_text = "例如：玩家在公共农场收割后不补种，导致冲突并催生规则"
+        help_text = "描述Minecraft游戏内的社会现象或事件，系统将自动检索相关理论并生成分析"
+    else:
+        placeholder_text = "例如：某企业实行996工作制，员工普遍感到压力过大，出现离职潮"
+        help_text = "描述现实社会现象或事件，系统将使用社会科学理论进行分析"
+    
     event_text = st.text_area(
-        "请输入游戏内结构化的事件文本",
-        placeholder="例如：玩家在公共农场收割后不补种，导致冲突并催生规则",
+        "请输入待分析的事件或现象",
+        placeholder=placeholder_text,
         height=150,
-        help="描述游戏内的社会现象或事件，系统将自动检索相关理论并生成分析",
+        help=help_text,
         key="event_input"
     )
     
-    # 配置选项
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
     
     with col1:
@@ -352,10 +390,9 @@ def render_event_input():
         )
     
     with col4:
-        st.write("")  # 占位
+        st.write("")
         st.write("")
     
-    # 提交按钮
     analyze_button = st.button(
         "提交分析",
         type="primary",
@@ -363,38 +400,39 @@ def render_event_input():
     )
     
     if analyze_button and event_text:
-        perform_analysis(event_text, k, temperature)
+        perform_analysis(event_text, k, temperature, analysis_mode)
 
 
-def perform_analysis(event_text: str, k: int, temperature: float):
+def perform_analysis(event_text: str, k: int, temperature: float, analysis_mode: str = "minecraft"):
     """执行分析"""
     try:
-        # 验证输入
         event_text = utils.validate_input(event_text)
-        
-        # 清洗文本
         event_text = utils.clean_event_text(event_text)
         
-        # 显示进度
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         status_text.text("正在检索相关理论...")
-        progress_bar.progress(0.3)
+        progress_bar.progress(0.2)
         
-        # 检索理论卡片
         kb = get_knowledge_base_instance()
         cards = kb.search_similar(event_text, k=k)
         
         if not cards:
             show_warning("未找到相关理论卡片，分析可能不够准确")
         
+        progress_bar.progress(0.4)
+        
+        status_text.text("正在检索历史资料...")
+        history_records = kb.search_history(event_text)
+        
         progress_bar.progress(0.5)
         
-        # 保存检索结果
         st.session_state.current_cards = cards
+        st.session_state.current_history = history_records
+        st.session_state.last_event_text = event_text
+        st.session_state.last_analysis_mode = analysis_mode
         
-        # 显示检索到的卡片
         if cards:
             with st.expander(f"检索到 {len(cards)} 个相关理论", expanded=False):
                 for i, card in enumerate(cards, 1):
@@ -403,25 +441,31 @@ def perform_analysis(event_text: str, k: int, temperature: float):
                     st.caption(f"来源: {card['source']}")
                     st.divider()
         
+        if history_records:
+            with st.expander(f"检索到 {len(history_records)} 条相关历史资料", expanded=False):
+                for i, record in enumerate(history_records, 1):
+                    st.markdown(f"**{i}. {record['title']}** (相似度: {record['similarity']:.2%})")
+                    st.caption(f"时期: {record.get('period', '未知')}")
+                    st.caption(record['content'][:200] + "..." if len(record['content']) > 200 else record['content'])
+                    st.caption(f"来源: {record['source']}")
+                    st.divider()
+        
         status_text.text("正在生成分析...")
         progress_bar.progress(0.7)
         
-        # 生成分析
         if st.session_state.streaming_enabled:
-            # 流式输出
             analysis_placeholder = st.empty()
             analysis_text = ""
             
             client = get_llm_client_instance()
-            for chunk in client.generate_analysis_stream(event_text, cards, temperature):
+            for chunk in client.generate_analysis_stream(event_text, cards, temperature, analysis_mode, history_records):
                 analysis_text += chunk
                 analysis_placeholder.markdown(analysis_text)
             
             st.session_state.current_analysis = analysis_text
             
         else:
-            # 非流式输出
-            analysis = llm_api.generate_analysis(event_text, cards, temperature)
+            analysis = llm_api.generate_analysis(event_text, cards, temperature, analysis_mode, history_records)
             st.session_state.current_analysis = analysis
         
         progress_bar.progress(1.0)
@@ -431,10 +475,7 @@ def perform_analysis(event_text: str, k: int, temperature: float):
         progress_bar.empty()
         status_text.empty()
         
-        # 显示引用的理论卡片
         render_referenced_cards()
-        
-        # 评分和保存
         render_rating_section(event_text)
         
     except InvalidInputError as e:
@@ -451,15 +492,12 @@ def render_analysis_result():
     st.markdown("---")
     st.subheader("分析结果")
     
-    # 显示当前分析
     st.markdown(st.session_state.current_analysis)
     
-    # 显示引用的理论卡片
     render_referenced_cards()
     
-    # 评分和保存
-    if st.session_state.get('last_event'):
-        render_rating_section(st.session_state.last_event)
+    if st.session_state.get('last_event_text'):
+        render_rating_section(st.session_state.last_event_text)
 
 
 def render_referenced_cards():
@@ -508,7 +546,8 @@ def render_rating_section(event_text: str):
             "分析质量评分",
             options=[1, 2, 3],
             format_func=lambda x: ["差", "中", "好"][x-1],
-            horizontal=True
+            horizontal=True,
+            key="rating_radio"
         )
     
     with col2:
@@ -517,7 +556,6 @@ def render_rating_section(event_text: str):
     with col3:
         if st.button("保存为黄金样本", type="primary", use_container_width=True):
             try:
-                # 保存到知识库
                 kb = get_knowledge_base_instance()
                 card_ids = [card['id'] for card in st.session_state.current_cards]
                 
@@ -528,7 +566,6 @@ def render_rating_section(event_text: str):
                     retrieved_cards=card_ids
                 )
                 
-                # 同时保存到文件
                 utils.save_golden_sample(
                     event=event_text,
                     analysis=st.session_state.current_analysis,
@@ -543,6 +580,50 @@ def render_rating_section(event_text: str):
                     
             except Exception as e:
                 show_error("保存失败", str(e))
+    
+    st.markdown("---")
+    st.subheader("导出分析报告")
+    
+    col_export1, col_export2, col_export3 = st.columns([1, 1, 1])
+    
+    with col_export1:
+        try:
+            md_content, md_filename = document_exporter.export_analysis_result(
+                event_text=event_text,
+                analysis=st.session_state.current_analysis,
+                retrieved_cards=st.session_state.current_cards,
+                format_type='md'
+            )
+            st.download_button(
+                label="导出为Markdown",
+                data=md_content,
+                file_name=md_filename,
+                mime="text/markdown",
+                use_container_width=True
+            )
+        except Exception as e:
+            show_error("生成Markdown失败", str(e))
+    
+    with col_export2:
+        try:
+            docx_content, docx_filename = document_exporter.export_analysis_result(
+                event_text=event_text,
+                analysis=st.session_state.current_analysis,
+                retrieved_cards=st.session_state.current_cards,
+                format_type='docx'
+            )
+            st.download_button(
+                label="导出为Word文档",
+                data=docx_content,
+                file_name=docx_filename,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+        except Exception as e:
+            show_error("生成Word文档失败", str(e))
+    
+    with col_export3:
+        st.write("")
 
 
 # ============ 知识库管理页面 ============
@@ -552,16 +633,18 @@ def render_knowledge_base_page():
     st.title("知识库管理")
     st.markdown("---")
     
-    # 标签页
-    tab1, tab2, tab3 = st.tabs(["卡片列表", "添加卡片", "批量导入"])
+    tab1, tab2, tab3, tab4 = st.tabs(["理论卡片", "历史资料", "添加卡片", "批量导入"])
     
     with tab1:
         render_card_list()
     
     with tab2:
-        render_add_card_form()
+        render_history_list()
     
     with tab3:
+        render_add_card_form()
+    
+    with tab4:
         render_batch_import()
 
 
@@ -626,6 +709,66 @@ def render_card_list():
         show_error("获取卡片列表失败", str(e))
 
 
+def render_history_list():
+    """渲染历史资料列表"""
+    st.subheader("历史资料库")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        search_query = st.text_input(
+            "搜索历史资料",
+            placeholder="输入关键词搜索...",
+            key="history_search"
+        )
+    
+    with col2:
+        period_filter = st.text_input(
+            "时期筛选",
+            placeholder="如：清朝、二战...",
+            key="history_period_filter"
+        )
+    
+    try:
+        kb = get_knowledge_base_instance()
+        
+        if search_query:
+            records = kb.search_history(search_query, k=50)
+        else:
+            records = []
+            show_info("请使用搜索功能查找历史资料")
+        
+        if records:
+            st.markdown(f"**找到 {len(records)} 条相关历史资料**")
+            
+            for i, record in enumerate(records):
+                with st.expander(
+                    f"{record['title']} (相似度: {record['similarity']:.2%})",
+                    expanded=False
+                ):
+                    st.markdown(f"**时期**: {record.get('period', '未知')}")
+                    st.markdown(f"**来源**: {record['source']}")
+                    st.markdown(f"**关键词**: {', '.join(record.get('keywords', []))}")
+                    st.markdown("---")
+                    st.markdown(record['content'])
+                    
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        if st.button("删除", key=f"del_history_{record['id']}", use_container_width=True):
+                            try:
+                                kb.history_collection.delete(ids=[record['id']])
+                                show_success("历史资料删除成功")
+                                st.rerun()
+                            except Exception as e:
+                                show_error("删除失败", str(e))
+        else:
+            if not search_query:
+                show_info("历史资料库暂无资料，请导入历史资料")
+    
+    except Exception as e:
+        show_error("获取历史资料失败", str(e))
+
+
 def render_card_item(card: Dict[str, Any]):
     """渲染单个卡片项"""
     with st.container():
@@ -675,20 +818,34 @@ def render_add_card_form():
     """渲染添加卡片表单"""
     st.subheader("添加新卡片")
     
+    card_type = st.radio(
+        "卡片类型",
+        ["理论卡片", "历史资料"],
+        horizontal=True,
+        key="add_card_type"
+    )
+    
     with st.form("add_card_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         
         with col1:
             card_id = st.text_input(
                 "卡片ID *",
-                placeholder="例如: theory_001",
+                placeholder="例如: theory_001 或 history_001",
                 help="唯一标识符，建议使用英文和下划线"
             )
             
             title = st.text_input(
                 "标题 *",
-                placeholder="理论标题"
+                placeholder="标题"
             )
+            
+            if card_type == "历史资料":
+                period = st.text_input(
+                    "时期 *",
+                    placeholder="例如: 公元前221年、清朝、二战时期",
+                    help="历史事件发生的时期"
+                )
             
             keywords = st.text_input(
                 "关键词",
@@ -699,80 +856,115 @@ def render_add_card_form():
         with col2:
             content = st.text_area(
                 "内容 *",
-                placeholder="理论内容描述",
+                placeholder="内容描述",
                 height=150
             )
             
             source = st.text_input(
                 "来源",
-                placeholder="例如: 作者 (年份). 论文标题"
+                placeholder="例如: 作者 (年份). 论文标题 或 史料名称"
             )
         
         submitted = st.form_submit_button("添加卡片", type="primary", use_container_width=True)
         
         if submitted:
-            # 验证必填字段
             if not all([card_id, title, content]):
                 show_error("请填写所有必填字段")
             else:
                 try:
-                    card = {
-                        'id': card_id.strip(),
-                        'title': title.strip(),
-                        'content': content.strip(),
-                        'keywords': [k.strip() for k in keywords.split(',') if k.strip()],
-                        'source': source.strip()
-                    }
-                    
                     kb = get_knowledge_base_instance()
-                    count = kb.add_cards([card])
                     
-                    if count > 0:
-                        show_success(f"成功添加卡片: {card_id}")
-                        time.sleep(0.5)
-                        st.rerun()
+                    if card_type == "理论卡片":
+                        card = {
+                            'id': card_id.strip(),
+                            'title': title.strip(),
+                            'content': content.strip(),
+                            'keywords': [k.strip() for k in keywords.split(',') if k.strip()],
+                            'source': source.strip()
+                        }
+                        count = kb.add_cards([card])
+                        if count > 0:
+                            show_success(f"成功添加理论卡片: {card_id}")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            show_warning("卡片可能已存在或添加失败")
                     else:
-                        show_warning("卡片可能已存在或添加失败")
-                        
+                        if not period:
+                            show_error("历史资料必须填写时期")
+                        else:
+                            record = {
+                                'id': card_id.strip(),
+                                'title': title.strip(),
+                                'content': content.strip(),
+                                'period': period.strip(),
+                                'keywords': [k.strip() for k in keywords.split(',') if k.strip()],
+                                'source': source.strip()
+                            }
+                            count = kb.add_history_records([record])
+                            if count > 0:
+                                show_success(f"成功添加历史资料: {card_id}")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                show_warning("历史资料可能已存在或添加失败")
+                            
                 except Exception as e:
-                    show_error("添加卡片失败", str(e))
+                    show_error("添加失败", str(e))
 
 
 def render_batch_import():
     """渲染批量导入功能"""
-    st.subheader("批量导入卡片")
+    st.subheader("批量导入")
     
-    # 文件上传
+    import_type = st.radio(
+        "导入类型",
+        ["理论卡片", "历史资料"],
+        horizontal=True,
+        key="batch_import_type"
+    )
+    
+    if import_type == "理论卡片":
+        help_text = "文件格式: [{id, title, content, keywords, source}, ...]"
+    else:
+        help_text = "文件格式: [{id, title, content, period, keywords, source}, ...]"
+    
     uploaded_file = st.file_uploader(
         "上传JSON文件",
         type=['json'],
-        help="文件格式: [{id, title, content, keywords, source}, ...]"
+        help=help_text
     )
     
     if uploaded_file is not None:
         try:
-            # 读取文件内容
             content = uploaded_file.read().decode('utf-8')
-            cards = json.loads(content)
+            items = json.loads(content)
             
-            if not isinstance(cards, list):
+            if not isinstance(items, list):
                 show_error("文件格式错误：应为JSON数组")
             else:
-                st.info(f"检测到 {len(cards)} 张卡片")
+                st.info(f"检测到 {len(items)} 条数据")
                 
-                # 预览前5张卡片
-                with st.expander("预览卡片", expanded=False):
-                    for i, card in enumerate(cards[:5], 1):
-                        st.markdown(f"**{i}. {card.get('title', 'N/A')}**")
-                        st.caption(f"ID: {card.get('id', 'N/A')}")
-                        st.caption(card.get('content', 'N/A')[:100] + "...")
+                with st.expander("预览数据", expanded=False):
+                    for i, item in enumerate(items[:5], 1):
+                        st.markdown(f"**{i}. {item.get('title', 'N/A')}**")
+                        st.caption(f"ID: {item.get('id', 'N/A')}")
+                        if import_type == "历史资料":
+                            st.caption(f"时期: {item.get('period', 'N/A')}")
+                        st.caption(item.get('content', 'N/A')[:100] + "...")
                         st.divider()
                 
                 if st.button("确认导入", type="primary", use_container_width=True):
                     try:
                         kb = get_knowledge_base_instance()
-                        count = kb.add_cards(cards)
-                        show_success(f"成功导入 {count} 张卡片")
+                        
+                        if import_type == "理论卡片":
+                            count = kb.add_cards(items)
+                            show_success(f"成功导入 {count} 张理论卡片")
+                        else:
+                            count = kb.add_history_records(items)
+                            show_success(f"成功导入 {count} 条历史资料")
+                        
                         time.sleep(0.5)
                         st.rerun()
                     except Exception as e:
@@ -783,24 +975,37 @@ def render_batch_import():
         except Exception as e:
             show_error("文件读取失败", str(e))
     
-    # 模板下载
     st.markdown("---")
     st.subheader("下载模板")
     
-    template = [
-        {
-            "id": "example_001",
-            "title": "示例理论",
-            "content": "这是一个示例理论卡片的内容描述。",
-            "keywords": ["示例", "模板"],
-            "source": "示例来源"
-        }
-    ]
+    if import_type == "理论卡片":
+        template = [
+            {
+                "id": "theory_001",
+                "title": "示例理论",
+                "content": "这是一个示例理论卡片的内容描述。",
+                "keywords": ["示例", "模板"],
+                "source": "示例来源"
+            }
+        ]
+        filename = "theory_card_template.json"
+    else:
+        template = [
+            {
+                "id": "history_001",
+                "title": "示例历史事件",
+                "content": "这是一个示例历史资料的内容描述。",
+                "period": "示例时期",
+                "keywords": ["示例", "模板"],
+                "source": "示例史料来源"
+            }
+        ]
+        filename = "history_record_template.json"
     
     st.download_button(
-        label="下载JSON模板",
+        label=f"下载{import_type}JSON模板",
         data=json.dumps(template, ensure_ascii=False, indent=2),
-        file_name="card_template.json",
+        file_name=filename,
         mime="application/json",
         use_container_width=True
     )
@@ -879,7 +1084,8 @@ def render_document_upload():
             analysis_mode = st.radio(
                 "分析模式",
                 ["AI自动分析", "简单分割", "手动处理"],
-                help="AI自动分析：使用AI分析内容并生成知识卡片\n简单分割：按段落分割文本\n手动处理：仅上传不处理"
+                help="AI自动分析：使用AI分析内容并生成知识卡片\n简单分割：按段落分割文本\n手动处理：仅上传不处理",
+                key="doc_analysis_mode"
             )
         
         with col2:
