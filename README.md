@@ -1,338 +1,413 @@
-# Minecraft游戏社科分析台
+# 不曾社科理论RAG分析系统
+
+<div align="center">
+
+<img src="logo.png" alt="BucengRAG Logo" width="180">
+
+**Buceng Social Science RAG Analysis System**
+
+基于检索增强生成架构的社会科学理论分析平台
+
+---
+
+![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10+-green.svg)
+![Status](https://img.shields.io/badge/status-active%20development-brightgreen.svg)
+
+![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?logo=streamlit)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-0.4+-orange)
+![DeepSeek](https://img.shields.io/badge/DeepSeek-API-blue)
+![BGE](https://img.shields.io/badge/BGE--large--zh-v1.5-green)
+
+---
+
+**开发者**: 北域工作室 (Northland Comprehensive Studio)
+
+**官网**: [https://beiyu.xuanjian.top](https://beiyu.xuanjian.top/)
+
+</div>
+
+---
+
+## 目录
+
+- [项目简介](#项目简介)
+- [核心特性](#核心特性)
+- [系统架构](#系统架构)
+- [技术栈](#技术栈)
+- [快速开始](#快速开始)
+- [使用指南](#使用指南)
+- [知识库内容](#知识库内容)
+- [配置说明](#配置说明)
+- [开发计划](#开发计划)
+- [开发者信息](#开发者信息)
+
+---
 
 ## 项目简介
 
-Minecraft游戏社科分析台是一个基于RAG（检索增强生成）架构的Web应用，旨在帮助研究人员分析Minecraft游戏内的社会学现象。系统结合本地向量知识库和云端大模型API，在保证数据安全的前提下，提供强大的理论分析能力。
+不曾社科理论RAG分析系统是一个专业的社会科学理论分析平台，采用检索增强生成(RAG)架构，整合了马克思主义理论、社会学、政治学、经济学等多学科知识体系。系统能够对游戏内社会现象和现实社会现象进行深入的理论分析，为用户提供专业的社会科学视角。
 
-## 功能特性
+### 设计理念
 
-- 智能理论检索：自动从本地知识库检索相关社科理论
-- AI分析生成：基于DeepSeek大模型生成专业分析报告
-- 理论引用追踪：自动识别并展示引用的理论卡片
-- 黄金样本管理：支持评分和保存高质量分析样本
-- 本地数据安全：向量库和嵌入模型完全本地运行
-- 友好Web界面：基于Streamlit的交互式界面
+- **理论驱动**: 以经典社会科学理论为核心，确保分析的专业性和深度
+- **历史参照**: 整合人类文明历史资料，提供历史背景和相似事件参考
+- **智能检索**: 基于向量相似度的语义检索，精准匹配相关理论
+- **开放架构**: 模块化设计，支持自定义扩展和多模型切换
+
+---
+
+## 核心特性
+
+### 双模式分析
+
+| 模式 | 说明 | 适用场景 |
+|------|------|----------|
+| Minecraft游戏分析 | 针对游戏内社会现象的理论分析 | 游戏社区研究、虚拟社会分析 |
+| 普通社科分析 | 针对现实社会现象的理论分析 | 社会问题研究、现象解读 |
+
+### 智能知识检索
+
+- 基于向量语义相似度的理论卡片检索
+- 历史资料库联动检索，提供历史参照
+- 可调节检索数量和相关性阈值
+
+### 多格式文档导出
+
+- Markdown格式：适合技术文档和在线发布
+- Word文档：适合学术报告和正式文档
+- 自动标注理论引用和生成信息
+
+### 知识库管理
+
+- 理论卡片管理：添加、编辑、删除、批量导入
+- 历史资料管理：时期分类、关键词检索
+- 黄金样本：高质量分析样本的保存与复用
+
+---
+
+## 系统架构
+
+```
+                                    +------------------+
+                                    |   Streamlit UI   |
+                                    +--------+---------+
+                                             |
+                    +------------------------+------------------------+
+                    |                        |                        |
+           +--------v--------+       +-------v-------+       +-------v-------+
+           |  事件输入模块   |       |  知识库管理   |       |  文档处理     |
+           +--------+--------+       +-------+-------+       +-------+-------+
+                    |                        |                        |
+                    |                        |                        |
+           +--------v--------+       +-------v-------+       +-------v-------+
+           |   分析模式选择   |       |   ChromaDB    |       |  PDF/DOCX    |
+           +--------+--------+       +-------+-------+       +-------+-------+
+                    |                        |                        |
+                    +------------+-----------+-----------+------------+
+                                 |                       |
+                        +--------v--------+       +------v------+
+                        |  向量嵌入模型   |       |  LLM API    |
+                        | (BGE-large-zh) |       | (DeepSeek)  |
+                        +--------+--------+       +------+------+
+                                 |                       |
+                        +--------v--------+       +------v------+
+                        |   理论卡片检索   |       |  分析生成   |
+                        +--------+--------+       +------+------+
+                                 |                       |
+                        +--------v--------+       +------v------+
+                        |   历史资料检索   |------>|  结果输出   |
+                        +-----------------+       +-------------+
+```
+
+### 目录结构
+
+```
+BUCENG/
+|-- app.py                          # Streamlit主应用入口
+|-- config.py                       # 配置管理模块
+|-- knowledge_base.py               # 知识库核心模块
+|-- llm_api.py                      # LLM API封装
+|-- embedding.py                    # 向量嵌入模块
+|-- document_processor.py           # 文档解析处理
+|-- document_exporter.py            # 文档导出工具
+|-- ai_analyzer.py                  # AI自动分析器
+|-- utils.py                        # 通用工具函数
+|-- logger.py                       # 日志管理
+|-- exceptions.py                   # 异常定义
+|--
+|-- chroma_db/                      # ChromaDB向量数据库
+|   |-- sociology_cards/            # 理论卡片集合
+|   |-- golden_samples/             # 黄金样本集合
+|   |-- history_records/            # 历史资料集合
+|--
+|-- data/                           # 数据文件目录
+|   |-- social_theory_cards.json           # 基础社科理论 (20张)
+|   |-- marxism_leninism_mao_cards.json    # 马列毛理论 (48张)
+|   |-- general_social_theory_cards.json   # 通用社科理论 (90张)
+|   |-- human_civilization_history.json    # 人类文明历史 (39条)
+|--
+|-- golden_samples/                 # 黄金样本存储目录
+|-- logs/                           # 日志文件目录
+|-- logo.png                        # 产品标识
+|-- README.md                       # 项目说明
+|-- report.md                       # 项目报告
+|-- plan.md                         # 开发计划
+|-- requirements.txt                # Python依赖
+|-- .env                            # 环境变量配置
+```
+
+---
 
 ## 技术栈
 
-- Python 3.10+
-- Streamlit：Web框架
-- ChromaDB：向量数据库
-- sentence-transformers：嵌入模型
-- OpenAI SDK：LLM API调用
-- pydantic：数据验证
+<table>
+<tr>
+<td width="200"><strong>类别</strong></td>
+<td><strong>技术选型</strong></td>
+</tr>
+<tr>
+<td>前端框架</td>
+<td>Streamlit 1.28+</td>
+</tr>
+<tr>
+<td>向量数据库</td>
+<td>ChromaDB 0.4+</td>
+</tr>
+<tr>
+<td>嵌入模型</td>
+<td>BAAI/bge-large-zh-v1.5 (本地部署)</td>
+</tr>
+<tr>
+<td>LLM服务</td>
+<td>DeepSeek API</td>
+</tr>
+<tr>
+<td>文档处理</td>
+<td>pdfplumber, python-docx</td>
+</tr>
+<tr>
+<td>配置管理</td>
+<td>pydantic-settings</td>
+</tr>
+<tr>
+<td>日志系统</td>
+<td>loguru</td>
+</tr>
+</table>
 
-## 项目结构
-
-```
-beiyusocialer/
-├── config.py              # 配置管理
-├── logger.py              # 日志系统
-├── exceptions.py          # 自定义异常
-├── embedding.py           # 嵌入模型
-├── knowledge_base.py      # 知识库管理
-├── llm_api.py             # LLM API调用
-├── utils.py               # 工具函数
-├── app.py                 # Streamlit主界面
-├── requirements.txt       # 依赖列表
-├── .env.example           # 环境变量示例
-├── data/                  # 数据目录
-│   └── seed_cards.json    # 初始理论卡片
-├── tests/                 # 测试目录
-│   ├── test_utils.py
-│   ├── test_config.py
-│   └── test_exceptions.py
-├── logs/                  # 日志目录
-├── chroma_db/             # ChromaDB数据目录
-├── Plan.md                # 开发计划
-├── Reporter.md            # 开发报告
-└── README.md              # 项目说明
-```
+---
 
 ## 快速开始
 
-### 1. 环境准备
+### 环境要求
 
-确保已安装Python 3.10或更高版本：
+| 项目 | 要求 |
+|------|------|
+| Python | 3.10 或更高版本 |
+| 内存 | 8GB 以上 (推荐16GB) |
+| 存储 | 5GB 以上可用空间 |
+| 网络 | 需要网络连接 (API调用) |
 
-```bash
-python --version
-```
+### 安装步骤
 
-### 2. 克隆项目
-
-```bash
-git clone git@github.com:northland-studio/beiyusocialer.git
-cd beiyusocialer
-```
-
-或
+**1. 克隆项目**
 
 ```bash
-git clone git@gitee.com:northland_studio/beiyusocialer.git
-cd beiyusocialer
+git clone https://github.com/your-repo/BUCENG.git
+cd BUCENG
 ```
 
-### 3. 安装依赖
+**2. 创建虚拟环境**
+
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux/macOS
+python -m venv venv
+source venv/bin/activate
+```
+
+**3. 安装依赖**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. 配置环境变量
+**4. 配置环境变量**
 
-复制环境变量示例文件：
-
-```bash
-cp .env.example .env
-```
-
-编辑`.env`文件，填写必要的配置：
+创建 `.env` 文件并填入配置：
 
 ```env
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
+# DeepSeek API配置
+DEEPSEEK_API_KEY=your_api_key_here
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+
+# 模型配置
+LLM_MODEL=deepseek-chat
+LLM_TEMPERATURE=0.7
+
+# HuggingFace镜像 (国内用户推荐)
+HF_ENDPOINT=https://hf-mirror.com
 ```
 
-### 5. 运行应用
+**5. 启动应用**
 
 ```bash
 streamlit run app.py
 ```
 
-应用将在浏览器中自动打开，默认地址为`http://localhost:8501`。
+应用将在 `http://localhost:8501` 启动。
+
+---
 
 ## 使用指南
 
-### 主界面功能
+### 理论分析流程
 
-1. **事件输入**：在文本框中输入游戏内的事件描述
-2. **提交分析**：点击"提交分析"按钮生成报告
-3. **查看结果**：分析结果将显示在下方，引用部分会高亮显示
-4. **评分保存**：对分析结果评分并保存为黄金样本
-
-### 侧边栏功能
-
-1. **知识库统计**：查看当前卡片数量和黄金样本数
-2. **添加卡片**：手动添加新的理论卡片
-3. **批量导入**：上传JSON文件批量导入卡片
-4. **检索测试**：测试理论卡片检索功能
-
-### 卡片格式
-
-理论卡片JSON格式示例：
-
-```json
-{
-  "id": "theory_001",
-  "title": "理论标题",
-  "content": "理论内容描述",
-  "keywords": ["关键词1", "关键词2"],
-  "source": "理论来源"
-}
 ```
+输入事件/现象描述
+        |
+        v
+选择分析模式 (Minecraft/普通社科)
+        |
+        v
+设置检索参数 (数量、创造性)
+        |
+        v
+提交分析 --> 理论卡片检索 --> 历史资料检索
+        |                           |
+        v                           v
+    LLM分析生成 <---- 整合检索结果
+        |
+        v
+查看分析结果 --> 导出报告 (MD/DOCX)
+        |
+        v
+评价保存 --> 黄金样本
+```
+
+### 知识库管理
+
+| 功能 | 说明 |
+|------|------|
+| 理论卡片 | 查看、搜索、添加、删除社会科学理论卡片 |
+| 历史资料 | 管理历史事件记录，支持时期筛选 |
+| 添加卡片 | 手动添加理论卡片或历史资料 |
+| 批量导入 | 通过JSON文件批量导入数据 |
+
+### 文档导入分析
+
+支持格式：
+- PDF文档 (.pdf)
+- Word文档 (.docx)
+- 纯文本文件 (.txt)
+
+处理流程：
+1. 上传文档
+2. 选择处理模式 (AI自动分析/简单分割/手动处理)
+3. 预览生成的知识卡片
+4. 确认导入到知识库
+
+---
+
+## 知识库内容
+
+### 理论卡片统计
+
+| 类别 | 数量 | 主要内容 |
+|------|------|----------|
+| 马克思主义 | 48张 | 共产党宣言、资本论、德意志意识形态、哥达纲领批判等 |
+| 列宁主义 | 8张 | 国家与革命、帝国主义论、怎么办、唯物主义和经验批判主义 |
+| 毛泽东思想 | 27张 | 实践论、矛盾论、论持久战、论人民民主专政等 |
+| 西方社会学 | 90张 | 韦伯、涂尔干、布迪厄、福柯、哈贝马斯等经典理论 |
+| **总计** | **173张** | |
+
+### 历史资料统计
+
+| 时期 | 数量 | 主要内容 |
+|------|------|----------|
+| 古代文明 | 12条 | 美索不达米亚、古埃及、古希腊、古罗马、夏商周等 |
+| 中世纪 | 3条 | 欧洲中世纪、伊斯兰文明、蒙古帝国 |
+| 近代史 | 10条 | 文艺复兴、宗教改革、工业革命、法国大革命、鸦片战争等 |
+| 现代史 | 14条 | 十月革命、世界大战、冷战、改革开放等 |
+| **总计** | **39条** | |
+
+---
 
 ## 配置说明
 
-### 必需配置
+### 环境变量配置
 
-- `DEEPSEEK_API_KEY`：DeepSeek API密钥（必需）
+| 变量名 | 必填 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `DEEPSEEK_API_KEY` | 是 | - | DeepSeek API密钥 |
+| `DEEPSEEK_BASE_URL` | 否 | `https://api.deepseek.com` | API服务地址 |
+| `LLM_MODEL` | 否 | `deepseek-chat` | 使用的模型名称 |
+| `LLM_TEMPERATURE` | 否 | `0.7` | 生成温度 (0.0-1.0) |
+| `MAX_INPUT_LENGTH` | 否 | `10000` | 最大输入字符数 |
+| `MAX_RETRIEVAL_RESULTS` | 否 | `10` | 默认检索结果数 |
+| `MAX_RETRIEVAL_LIMIT` | 否 | `50` | 检索结果上限 |
+| `MAX_HISTORY_RESULTS` | 否 | `5` | 历史资料检索数 |
+| `HF_ENDPOINT` | 否 | `https://hf-mirror.com` | HuggingFace镜像地址 |
 
-### 可选配置
+### 支持的LLM模型
 
-- `DEEPSEEK_BASE_URL`：API地址（默认：https://api.deepseek.com）
-- `EMBEDDING_MODEL_NAME`：嵌入模型名称（默认：BAAI/bge-large-zh-v1.5）
-- `EMBEDDING_DEVICE`：运行设备（默认：cpu，可选：cuda）
-- `CHROMA_PERSIST_DIR`：ChromaDB数据目录（默认：./chroma_db）
-- `MAX_INPUT_LENGTH`：最大输入长度（默认：5000）
-- `LLM_TEMPERATURE`：LLM温度参数（默认：0.3）
-- `LOG_LEVEL`：日志级别（默认：INFO）
+- `deepseek-chat` - DeepSeek对话模型 (推荐)
+- `deepseek-reasoner` - DeepSeek推理模型
 
-## 测试
+---
 
-### 运行所有测试
+## 开发计划
 
-```bash
-pytest tests/
-```
+### 已完成功能
 
-### 运行特定测试
+- [x] 基础RAG架构
+- [x] 知识库管理
+- [x] 理论分析功能
+- [x] 历史资料库
+- [x] 双模式分析
+- [x] 文档导出
+- [x] AI自动分析
+- [x] 批量导入
 
-```bash
-pytest tests/test_utils.py
-```
+### 计划功能
 
-### 查看测试覆盖率
+- [ ] 支持更多LLM模型 (OpenAI, Claude等)
+- [ ] 分析历史记录
+- [ ] 检索性能优化
+- [ ] 多语言支持
+- [ ] API接口开放
+- [ ] 知识图谱可视化
 
-```bash
-pytest --cov=. tests/
-```
+---
 
-## 开发指南
+## 开发者信息
 
-### 代码风格
+<div align="center">
 
-项目使用以下工具保证代码质量：
+**北域工作室**
 
-- black：代码格式化
-- flake8：代码检查
-- mypy：类型检查
+Northland Comprehensive Studio
 
-运行代码检查：
+---
 
-```bash
-black .
-flake8 .
-mypy .
-```
+[官网](https://beiyu.xuanjian.top/) | [GitHub](https://github.com/northland-studio/buceng-rag)
 
-### 添加新功能
+---
 
-1. 在相应模块中实现功能
-2. 添加单元测试
-3. 更新文档
-4. 提交代码
+本项目为闭源项目，保留所有权利
 
-## 部署指南
+</div>
 
-### Docker部署（推荐）
+---
 
-创建Dockerfile：
+<div align="center">
 
-```dockerfile
-FROM python:3.10-slim
+**不曾社科理论RAG分析系统**
 
-WORKDIR /app
+让社会科学理论分析更智能
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-```
-
-构建并运行：
-
-```bash
-docker build -t beiyusocialer .
-docker run -p 8501:8501 --env-file .env beiyusocialer
-```
-
-### 本地部署
-
-直接运行：
-
-```bash
-streamlit run app.py
-```
-
-## 常见问题
-
-### 1. 嵌入模型下载失败
-
-**问题**：首次运行时模型下载失败或速度很慢。
-
-**解决方案**：
-- 使用国内镜像源
-- 手动下载模型文件到本地
-- 设置`HF_ENDPOINT`环境变量
-
-### 2. API调用失败
-
-**问题**：DeepSeek API调用失败。
-
-**解决方案**：
-- 检查API密钥是否正确
-- 检查网络连接
-- 查看API配额是否用尽
-
-### 3. 内存不足
-
-**问题**：运行时内存占用过高。
-
-**解决方案**：
-- 使用更小的嵌入模型
-- 减少批处理大小
-- 使用GPU加速
-
-## 性能优化
-
-### 1. 使用GPU加速
-
-修改`.env`文件：
-
-```env
-EMBEDDING_DEVICE=cuda
-```
-
-### 2. 调整检索数量
-
-在界面中调整"检索数量"参数，减少返回的理论卡片数量。
-
-### 3. 使用缓存
-
-Streamlit会自动缓存模型和知识库实例，无需额外配置。
-
-## 安全建议
-
-1. **保护API密钥**：不要将`.env`文件提交到版本控制
-2. **定期备份**：定期备份`chroma_db`和`data`目录
-3. **访问控制**：在生产环境中添加用户认证
-4. **日志监控**：定期检查日志文件
-
-## 项目状态
-
-当前版本：v1.0.0
-
-开发状态：核心功能已完成，测试中
-
-## 更新日志
-
-### v1.0.0 (2026-04-26)
-
-- 完成核心功能开发
-- 实现Web界面
-- 添加单元测试
-- 编写项目文档
-
-## 贡献指南
-
-欢迎提交Issue和Pull Request。
-
-### 提交代码
-
-1. Fork本项目
-2. 创建特性分支
-3. 提交更改
-4. 推送到分支
-5. 创建Pull Request
-
-### 提交信息规范
-
-- feat: 新增功能
-- doc: 文档变更
-- fix: 修复bug
-- refactor: 代码重构
-- perf: 性能优化
-- test: 测试变更
-
-## 许可证
-
-本项目采用MIT许可证。
-
-## 联系方式
-
-- GitHub: https://github.com/northland-studio/beiyusocialer
-- Gitee: https://gitee.com/northland_studio/beiyusocialer
-
-## 致谢
-
-感谢以下开源项目：
-
-- Streamlit
-- ChromaDB
-- sentence-transformers
-- OpenAI Python SDK
-- pydantic
+</div>
