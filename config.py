@@ -65,8 +65,12 @@ class Settings(BaseSettings):
         description="最大输入长度（字符）"
     )
     MAX_RETRIEVAL_RESULTS: int = Field(
-        default=5,
+        default=10,
         description="检索返回的最大结果数"
+    )
+    MAX_RETRIEVAL_LIMIT: int = Field(
+        default=50,
+        description="检索数量上限"
     )
     
     # LLM 配置

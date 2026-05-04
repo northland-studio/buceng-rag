@@ -336,7 +336,7 @@ def render_event_input():
         k = st.number_input(
             "检索数量",
             min_value=1,
-            max_value=10,
+            max_value=settings.MAX_RETRIEVAL_LIMIT,
             value=settings.MAX_RETRIEVAL_RESULTS,
             help="检索的理论卡片数量"
         )
