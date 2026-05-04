@@ -49,6 +49,7 @@ class KnowledgeBase:
     知识库管理类
     
     管理理论卡片的存储、检索和更新
+    同时管理历史资料库
     """
     
     def __init__(self):
@@ -56,6 +57,7 @@ class KnowledgeBase:
         self._client: Optional[chromadb.Client] = None
         self._collection: Optional[chromadb.Collection] = None
         self._golden_collection: Optional[chromadb.Collection] = None
+        self._history_collection: Optional[chromadb.Collection] = None
         self._initialized = False
     
     def initialize(self) -> None:
@@ -101,10 +103,18 @@ class KnowledgeBase:
                 metadata={"description": "黄金样本数据"}
             )
             
+            # 获取或创建历史资料集合
+            self._history_collection = self._client.get_or_create_collection(
+                name=settings.HISTORY_COLLECTION,
+                embedding_function=embedding_fn,
+                metadata={"description": "历史资料记录"}
+            )
+            
             logger.info(
                 f"知识库初始化成功，"
                 f"理论卡片数: {self._collection.count()}，"
-                f"黄金样本数: {self._golden_collection.count()}"
+                f"黄金样本数: {self._golden_collection.count()}，"
+                f"历史资料数: {self._history_collection.count()}"
             )
             
             self._initialized = True
@@ -168,6 +178,13 @@ class KnowledgeBase:
         if not self._initialized:
             self.initialize()
         return self._golden_collection
+    
+    @property
+    def history_collection(self) -> chromadb.Collection:
+        """获取历史资料集合"""
+        if not self._initialized:
+            self.initialize()
+        return self._history_collection
     
     def add_cards(self, cards: List[Dict[str, Any]]) -> int:
         """
@@ -402,6 +419,7 @@ class KnowledgeBase:
             return {
                 'total_cards': self.collection.count(),
                 'golden_samples': self.golden_collection.count(),
+                'history_records': self.history_collection.count(),
                 'collection_name': settings.COLLECTION_NAME,
                 'persist_directory': str(settings.get_chroma_path())
             }
@@ -494,6 +512,144 @@ class KnowledgeBase:
         except Exception as e:
             logger.error(f"导出黄金样本失败: {e}")
             return 0
+    
+    def add_history_records(self, records: List[Dict[str, Any]]) -> int:
+        """
+        添加历史资料到知识库
+        
+        Args:
+            records: 历史记录列表，每个记录包含:
+                - id: 唯一标识
+                - title: 标题
+                - content: 内容
+                - period: 时期/年代
+                - source: 来源
+                - keywords: 关键词列表
+        
+        Returns:
+            成功添加的记录数量
+        """
+        if not records:
+            return 0
+        
+        ids = []
+        documents = []
+        metadatas = []
+        
+        for record in records:
+            record_id = record.get('id')
+            if not record_id:
+                logger.warning(f"历史记录缺少ID，跳过: {record}")
+                continue
+            
+            existing = self.history_collection.get(ids=[record_id])
+            if existing and existing['ids']:
+                logger.warning(f"历史记录ID已存在，跳过: {record_id}")
+                continue
+            
+            ids.append(record_id)
+            documents.append(record.get('content', ''))
+            
+            metadata = {
+                'title': record.get('title', ''),
+                'period': record.get('period', ''),
+                'source': record.get('source', ''),
+                'keywords': ','.join(record.get('keywords', [])),
+                'created_at': datetime.now().isoformat()
+            }
+            metadatas.append(metadata)
+        
+        if ids:
+            try:
+                self.history_collection.add(
+                    ids=ids,
+                    documents=documents,
+                    metadatas=metadatas
+                )
+                logger.info(f"成功添加 {len(ids)} 条历史资料")
+                return len(ids)
+            except Exception as e:
+                logger.error(f"添加历史资料失败: {e}")
+                raise KnowledgeBaseError(
+                    message="添加历史资料失败",
+                    details=str(e)
+                )
+        
+        return 0
+    
+    def search_history(
+        self,
+        query: str,
+        k: int = None
+    ) -> List[Dict[str, Any]]:
+        """
+        检索相似的历史资料
+        
+        Args:
+            query: 查询文本
+            k: 返回结果数量，默认使用配置值
+        
+        Returns:
+            相似历史记录列表
+        """
+        if k is None:
+            k = settings.MAX_HISTORY_RESULTS
+        
+        try:
+            results = self.history_collection.query(
+                query_texts=[query],
+                n_results=k,
+                include=['documents', 'metadatas', 'distances']
+            )
+            
+            records = []
+            if results and results['ids'] and results['ids'][0]:
+                for i, record_id in enumerate(results['ids'][0]):
+                    distance = results['distances'][0][i]
+                    similarity = max(0, 1 - distance)
+                    
+                    metadata = results['metadatas'][0][i]
+                    
+                    record = {
+                        'id': record_id,
+                        'title': metadata.get('title', ''),
+                        'content': results['documents'][0][i],
+                        'period': metadata.get('period', ''),
+                        'source': metadata.get('source', ''),
+                        'keywords': metadata.get('keywords', '').split(',') if metadata.get('keywords') else [],
+                        'similarity': round(similarity, 4)
+                    }
+                    records.append(record)
+            
+            logger.info(f"检索到 {len(records)} 条相关历史资料")
+            return records
+            
+        except Exception as e:
+            logger.error(f"历史资料检索失败: {e}")
+            raise KnowledgeBaseError(
+                message="历史资料检索失败",
+                details=str(e)
+            )
+    
+    def get_history_stats(self) -> Dict[str, Any]:
+        """
+        获取历史资料库统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        try:
+            return {
+                'total_cards': self.collection.count(),
+                'golden_samples': self.golden_collection.count(),
+                'history_records': self.history_collection.count(),
+                'collection_name': settings.COLLECTION_NAME,
+                'history_collection_name': settings.HISTORY_COLLECTION,
+                'persist_directory': str(settings.get_chroma_path())
+            }
+        except Exception as e:
+            logger.error(f"获取统计信息失败: {e}")
+            return {}
 
 
 # 全局知识库实例
