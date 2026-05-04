@@ -24,11 +24,11 @@ wheels/
 venv/
 ENV/
 env/
-.venv
+.venv/
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
@@ -36,6 +36,7 @@ env/
 # Environment Variables
 .env
 .env.local
+.env.*.local
 
 # Logs
 logs/
@@ -44,34 +45,26 @@ logs/
 # ChromaDB
 chroma_db/
 
-# Model Cache
+# Golden Samples
+golden_samples/
+
+# Cache
 .cache/
-models/
-
-# Test Coverage
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# PyCharm
-.idea/
+*.cache
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Temporary Files
+# Jupyter
+.ipynb_checkpoints/
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary
 *.tmp
+*.temp
 *.bak
-*.swp
-
-# Golden Samples
-golden_samples.jsonl
-
-# Streamlit
-.streamlit/secrets.toml
