@@ -393,6 +393,29 @@ def render_event_input():
         st.write("")
         st.write("")
     
+    if settings.LLM_MODEL.startswith("deepseek-v4"):
+        st.markdown("---")
+        st.markdown("**DeepSeek V4 高级参数**")
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            thinking_enabled = st.checkbox(
+                "启用思考模式",
+                value=settings.LLM_THINKING_ENABLED,
+                help="启用后模型会进行更深入的推理思考"
+            )
+        
+        with col_b:
+            reasoning_effort = st.selectbox(
+                "推理努力程度",
+                options=["low", "medium", "high"],
+                index=["low", "medium", "high"].index(settings.LLM_REASONING_EFFORT),
+                help="推理努力程度：low(快速)、medium(中等)、high(深度)"
+            )
+    else:
+        thinking_enabled = False
+        reasoning_effort = "medium"
+    
     analyze_button = st.button(
         "提交分析",
         type="primary",
@@ -400,10 +423,10 @@ def render_event_input():
     )
     
     if analyze_button and event_text:
-        perform_analysis(event_text, k, temperature, analysis_mode)
+        perform_analysis(event_text, k, temperature, analysis_mode, thinking_enabled, reasoning_effort)
 
 
-def perform_analysis(event_text: str, k: int, temperature: float, analysis_mode: str = "minecraft"):
+def perform_analysis(event_text: str, k: int, temperature: float, analysis_mode: str = "minecraft", thinking_enabled: bool = True, reasoning_effort: str = "high"):
     """执行分析"""
     try:
         event_text = utils.validate_input(event_text)
@@ -458,14 +481,14 @@ def perform_analysis(event_text: str, k: int, temperature: float, analysis_mode:
             analysis_text = ""
             
             client = get_llm_client_instance()
-            for chunk in client.generate_analysis_stream(event_text, cards, temperature, analysis_mode, history_records):
+            for chunk in client.generate_analysis_stream(event_text, cards, temperature, analysis_mode, history_records, thinking_enabled, reasoning_effort):
                 analysis_text += chunk
                 analysis_placeholder.markdown(analysis_text)
             
             st.session_state.current_analysis = analysis_text
             
         else:
-            analysis = llm_api.generate_analysis(event_text, cards, temperature, analysis_mode, history_records)
+            analysis = llm_api.generate_analysis(event_text, cards, temperature, analysis_mode, history_records, thinking_enabled, reasoning_effort)
             st.session_state.current_analysis = analysis
         
         progress_bar.progress(1.0)

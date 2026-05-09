@@ -232,7 +232,9 @@ class LLMClient:
         retrieved_cards: List[Dict[str, Any]],
         temperature: Optional[float] = None,
         analysis_mode: str = "minecraft",
-        history_records: Optional[List[Dict[str, Any]]] = None
+        history_records: Optional[List[Dict[str, Any]]] = None,
+        thinking_enabled: bool = True,
+        reasoning_effort: str = "high"
     ) -> str:
         """
         生成分析报告（非流式）
@@ -243,6 +245,8 @@ class LLMClient:
             temperature: 温度参数，默认使用配置值
             analysis_mode: 分析模式 (minecraft/general)
             history_records: 检索到的历史资料
+            thinking_enabled: 是否启用思考模式
+            reasoning_effort: 推理努力程度
         
         Returns:
             分析报告文本
@@ -277,12 +281,18 @@ class LLMClient:
             
             logger.info(f"调用LLM生成分析，模型: {settings.LLM_MODEL}, 模式: {analysis_mode}")
             
-            response = self.client.chat.completions.create(
-                model=settings.LLM_MODEL,
-                messages=messages,
-                temperature=temperature or settings.LLM_TEMPERATURE,
-                stream=False
-            )
+            api_params = {
+                "model": settings.LLM_MODEL,
+                "messages": messages,
+                "temperature": temperature or settings.LLM_TEMPERATURE,
+                "stream": False
+            }
+            
+            if settings.LLM_MODEL.startswith("deepseek-v4") and thinking_enabled:
+                api_params["extra_body"] = {"thinking": {"type": "enabled"}}
+                api_params["reasoning_effort"] = reasoning_effort
+            
+            response = self.client.chat.completions.create(**api_params)
             
             analysis = response.choices[0].message.content
             
@@ -334,7 +344,9 @@ class LLMClient:
         retrieved_cards: List[Dict[str, Any]],
         temperature: Optional[float] = None,
         analysis_mode: str = "minecraft",
-        history_records: Optional[List[Dict[str, Any]]] = None
+        history_records: Optional[List[Dict[str, Any]]] = None,
+        thinking_enabled: bool = True,
+        reasoning_effort: str = "high"
     ) -> Generator[str, None, None]:
         """
         生成分析报告（流式输出）
@@ -345,6 +357,8 @@ class LLMClient:
             temperature: 温度参数
             analysis_mode: 分析模式 (minecraft/general)
             history_records: 检索到的历史资料
+            thinking_enabled: 是否启用思考模式
+            reasoning_effort: 推理努力程度
         
         Yields:
             分析报告文本片段
@@ -376,12 +390,18 @@ class LLMClient:
             
             logger.info(f"调用LLM生成分析（流式），模型: {settings.LLM_MODEL}, 模式: {analysis_mode}")
             
-            stream = self.client.chat.completions.create(
-                model=settings.LLM_MODEL,
-                messages=messages,
-                temperature=temperature or settings.LLM_TEMPERATURE,
-                stream=True
-            )
+            api_params = {
+                "model": settings.LLM_MODEL,
+                "messages": messages,
+                "temperature": temperature or settings.LLM_TEMPERATURE,
+                "stream": True
+            }
+            
+            if settings.LLM_MODEL.startswith("deepseek-v4") and thinking_enabled:
+                api_params["extra_body"] = {"thinking": {"type": "enabled"}}
+                api_params["reasoning_effort"] = reasoning_effort
+            
+            stream = self.client.chat.completions.create(**api_params)
             
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
@@ -457,7 +477,9 @@ def generate_analysis(
     retrieved_cards: List[Dict[str, Any]],
     temperature: Optional[float] = None,
     analysis_mode: str = "minecraft",
-    history_records: Optional[List[Dict[str, Any]]] = None
+    history_records: Optional[List[Dict[str, Any]]] = None,
+    thinking_enabled: bool = True,
+    reasoning_effort: str = "high"
 ) -> str:
     """
     生成分析报告（便捷函数）
@@ -468,12 +490,14 @@ def generate_analysis(
         temperature: 温度参数
         analysis_mode: 分析模式 (minecraft/general)
         history_records: 检索到的历史资料
+        thinking_enabled: 是否启用思考模式
+        reasoning_effort: 推理努力程度
     
     Returns:
         分析报告文本
     """
     client = get_llm_client()
-    return client.generate_analysis(event_text, retrieved_cards, temperature, analysis_mode, history_records)
+    return client.generate_analysis(event_text, retrieved_cards, temperature, analysis_mode, history_records, thinking_enabled, reasoning_effort)
 
 
 def generate_analysis_stream(
@@ -481,7 +505,9 @@ def generate_analysis_stream(
     retrieved_cards: List[Dict[str, Any]],
     temperature: Optional[float] = None,
     analysis_mode: str = "minecraft",
-    history_records: Optional[List[Dict[str, Any]]] = None
+    history_records: Optional[List[Dict[str, Any]]] = None,
+    thinking_enabled: bool = True,
+    reasoning_effort: str = "high"
 ) -> Generator[str, None, None]:
     """
     生成分析报告（流式输出，便捷函数）
@@ -492,9 +518,11 @@ def generate_analysis_stream(
         temperature: 温度参数
         analysis_mode: 分析模式 (minecraft/general)
         history_records: 检索到的历史资料
+        thinking_enabled: 是否启用思考模式
+        reasoning_effort: 推理努力程度
     
     Yields:
         分析报告文本片段
     """
     client = get_llm_client()
-    yield from client.generate_analysis_stream(event_text, retrieved_cards, temperature, analysis_mode, history_records)
+    yield from client.generate_analysis_stream(event_text, retrieved_cards, temperature, analysis_mode, history_records, thinking_enabled, reasoning_effort)

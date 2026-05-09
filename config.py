@@ -98,6 +98,14 @@ class Settings(BaseSettings):
         le=300,
         description="LLM调用超时时间（秒）"
     )
+    LLM_THINKING_ENABLED: bool = Field(
+        default=True,
+        description="是否启用思考模式（DeepSeek V4）"
+    )
+    LLM_REASONING_EFFORT: str = Field(
+        default="high",
+        description="推理努力程度（low/medium/high）"
+    )
     LLM_MAX_RETRIES: int = Field(
         default=3,
         ge=1,
