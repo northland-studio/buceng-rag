@@ -105,10 +105,17 @@ class LLMClient:
     封装DeepSeek API调用，支持重试和流式输出
     """
     
-    def __init__(self):
-        """初始化LLM客户端"""
+    def __init__(self, api_key: str = None, base_url: str = None):
+        """初始化LLM客户端
+        
+        Args:
+            api_key: API密钥，不传则使用配置文件中的
+            base_url: API地址，不传则使用配置文件中的
+        """
         self._client: Optional[OpenAI] = None
         self._initialized = False
+        self._api_key = api_key or settings.DEEPSEEK_API_KEY
+        self._base_url = base_url or settings.DEEPSEEK_BASE_URL
     
     def initialize(self) -> None:
         """
@@ -121,31 +128,28 @@ class LLMClient:
             return
         
         try:
-            logger.info(f"初始化LLM客户端，API地址: {settings.DEEPSEEK_BASE_URL}")
+            logger.info(f"初始化LLM客户端，API地址: {self._base_url}")
             
-            # 清除可能存在的代理环境变量，避免OpenAI库自动使用代理
             import os
             old_http_proxy = os.environ.get('HTTP_PROXY')
             old_https_proxy = os.environ.get('HTTPS_PROXY')
             old_http_proxy_lower = os.environ.get('http_proxy')
             old_https_proxy_lower = os.environ.get('https_proxy')
             
-            # 临时移除代理设置
             for key in ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']:
                 if key in os.environ:
                     del os.environ[key]
             
             try:
                 self._client = OpenAI(
-                    api_key=settings.DEEPSEEK_API_KEY,
-                    base_url=settings.DEEPSEEK_BASE_URL,
+                    api_key=self._api_key,
+                    base_url=self._base_url,
                     timeout=settings.LLM_TIMEOUT
                 )
                 
                 self._initialized = True
                 logger.info("LLM客户端初始化成功")
             finally:
-                # 恢复代理设置
                 if old_http_proxy:
                     os.environ['HTTP_PROXY'] = old_http_proxy
                 if old_https_proxy:

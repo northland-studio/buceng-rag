@@ -2,12 +2,13 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, AsyncGenerator
 import os
 import json
 import shutil
 from datetime import datetime
 import io
+import asyncio
 
 from config import settings
 from knowledge_base import KnowledgeBase
@@ -29,7 +30,6 @@ app.add_middleware(
 )
 
 kb: Optional[KnowledgeBase] = None
-llm_client: Optional[LLMClient] = None
 exporter = DocumentExporter()
 
 
@@ -40,6 +40,8 @@ class AnalyzeRequest(BaseModel):
     thinking_enabled: bool = True
     reasoning_effort: str = "high"
     max_results: int = 5
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 class AddCardRequest(BaseModel):
@@ -55,9 +57,16 @@ class SearchRequest(BaseModel):
     k: int = 5
 
 
+class ExportRequest(BaseModel):
+    event_text: str
+    analysis: str
+    retrieved_cards: List[Dict[str, Any]] = []
+    llm_model: str = "DeepSeek"
+
+
 @app.on_event("startup")
 async def startup_event():
-    global kb, llm_client
+    global kb
     
     os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
     
@@ -82,11 +91,6 @@ async def startup_event():
                 cards = json.load(f)
                 if isinstance(cards, list):
                     kb.add_cards(cards)
-    
-    try:
-        llm_client = LLMClient()
-    except Exception as e:
-        print(f"LLM client initialization warning: {e}")
 
 
 @app.get("/")
@@ -98,8 +102,7 @@ async def root():
 async def health_check():
     return {
         "status": "healthy",
-        "kb_initialized": kb is not None,
-        "llm_initialized": llm_client is not None
+        "kb_initialized": kb is not None
     }
 
 
@@ -108,6 +111,9 @@ async def analyze(request: AnalyzeRequest):
     if not kb:
         raise HTTPException(status_code=503, detail="Knowledge base not initialized")
     
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API Key 是必填项，请在设置中配置您的 API Key")
+    
     try:
         retrieved_cards = kb.search(request.event_text, k=request.max_results)
         
@@ -115,18 +121,17 @@ async def analyze(request: AnalyzeRequest):
         if hasattr(kb, 'search_history'):
             history_records = kb.search_history(request.event_text, k=settings.MAX_HISTORY_RESULTS)
         
-        if llm_client:
-            analysis = llm_client.generate_analysis(
-                event_text=request.event_text,
-                retrieved_cards=retrieved_cards,
-                temperature=request.temperature,
-                analysis_mode=request.analysis_mode,
-                history_records=history_records,
-                thinking_enabled=request.thinking_enabled,
-                reasoning_effort=request.reasoning_effort
-            )
-        else:
-            analysis = "LLM client not initialized. Please check API key configuration."
+        current_llm = LLMClient(api_key=request.api_key, base_url=request.base_url)
+        
+        analysis = current_llm.generate_analysis(
+            event_text=request.event_text,
+            retrieved_cards=retrieved_cards,
+            temperature=request.temperature,
+            analysis_mode=request.analysis_mode,
+            history_records=history_records,
+            thinking_enabled=request.thinking_enabled,
+            reasoning_effort=request.reasoning_effort
+        )
         
         return {
             "analysis": analysis,
@@ -229,28 +234,13 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @app.post("/api/export/markdown")
-async def export_markdown(request: AnalyzeRequest):
-    if not kb:
-        raise HTTPException(status_code=503, detail="Knowledge base not initialized")
-    
+async def export_markdown(request: ExportRequest):
     try:
-        retrieved_cards = kb.search(request.event_text, k=request.max_results)
-        
-        if llm_client:
-            analysis = llm_client.generate_analysis(
-                event_text=request.event_text,
-                retrieved_cards=retrieved_cards,
-                temperature=request.temperature,
-                analysis_mode=request.analysis_mode
-            )
-        else:
-            analysis = "LLM client not initialized."
-        
         md_content = exporter.export_to_markdown(
             event_text=request.event_text,
-            analysis=analysis,
-            retrieved_cards=retrieved_cards,
-            llm_model=settings.LLM_MODEL
+            analysis=request.analysis,
+            retrieved_cards=request.retrieved_cards,
+            llm_model=request.llm_model
         )
         
         return StreamingResponse(
@@ -260,6 +250,77 @@ async def export_markdown(request: AnalyzeRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export/docx")
+async def export_docx(request: ExportRequest):
+    try:
+        docx_buffer = exporter.export_to_docx(
+            event_text=request.event_text,
+            analysis=request.analysis,
+            retrieved_cards=request.retrieved_cards,
+            llm_model=request.llm_model
+        )
+        
+        return StreamingResponse(
+            docx_buffer,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename=analysis_{datetime.now().strftime('%Y%m%d%H%M%S')}.docx"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze/stream")
+async def analyze_stream(request: AnalyzeRequest):
+    if not kb:
+        raise HTTPException(status_code=503, detail="Knowledge base not initialized")
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API Key 是必填项，请在设置中配置您的 API Key")
+    
+    async def generate() -> AsyncGenerator[str, None]:
+        try:
+            retrieved_cards = kb.search(request.event_text, k=request.max_results)
+            
+            history_records = []
+            if hasattr(kb, 'search_history'):
+                history_records = kb.search_history(request.event_text, k=settings.MAX_HISTORY_RESULTS)
+            
+            yield f"data: {json.dumps({'type': 'cards', 'data': retrieved_cards}, ensure_ascii=False)}\n\n"
+            
+            if history_records:
+                yield f"data: {json.dumps({'type': 'history', 'data': history_records}, ensure_ascii=False)}\n\n"
+            
+            current_llm = LLMClient(api_key=request.api_key, base_url=request.base_url)
+            
+            analysis_text = ""
+            for chunk in current_llm.generate_analysis_stream(
+                event_text=request.event_text,
+                retrieved_cards=retrieved_cards,
+                temperature=request.temperature,
+                analysis_mode=request.analysis_mode,
+                history_records=history_records,
+                thinking_enabled=request.thinking_enabled,
+                reasoning_effort=request.reasoning_effort
+            ):
+                analysis_text += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk}, ensure_ascii=False)}\n\n"
+            
+            yield f"data: {json.dumps({'type': 'done', 'model': settings.LLM_MODEL}, ensure_ascii=False)}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @app.get("/api/stats")
