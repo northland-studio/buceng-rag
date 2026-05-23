@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { analyzeApi, type StreamMessage } from '../services/api';
 import type { AnalyzeResponse, Card, HistoryRecord } from '../types';
 import ReactMarkdown from 'react-markdown';
@@ -25,6 +25,11 @@ import {
 type AnalysisMode = 'minecraft' | 'general';
 type ReasoningEffort = 'low' | 'medium' | 'high';
 
+const STORAGE_KEYS = {
+  API_KEY: 'buceng_api_key',
+  BASE_URL: 'buceng_base_url',
+};
+
 export default function Analyzer() {
   const [eventText, setEventText] = useState('');
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('minecraft');
@@ -34,8 +39,8 @@ export default function Analyzer() {
   const [temperature, setTemperature] = useState(0.3);
   const [streamingEnabled, setStreamingEnabled] = useState(true);
   
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem(STORAGE_KEYS.API_KEY) || '');
+  const [baseUrl, setBaseUrl] = useState(() => localStorage.getItem(STORAGE_KEYS.BASE_URL) || '');
   const [showApiKey, setShowApiKey] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -45,6 +50,22 @@ export default function Analyzer() {
   const [showSettings, setShowSettings] = useState(true);
   const [copied, setCopied] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (apiKey) {
+      localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.API_KEY);
+    }
+  }, [apiKey]);
+
+  useEffect(() => {
+    if (baseUrl) {
+      localStorage.setItem(STORAGE_KEYS.BASE_URL, baseUrl);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.BASE_URL);
+    }
+  }, [baseUrl]);
 
   const buildRequest = () => ({
     event_text: eventText,
