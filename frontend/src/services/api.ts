@@ -136,7 +136,7 @@ export const analyzeApi = {
     return response.data;
   },
 
-  healthCheck: async (): Promise<{ status: string; kb_initialized: boolean }> => {
+  healthCheck: async (): Promise<{ status: string; kb_initialized: boolean; llm_initialized: boolean }> => {
     const response = await api.get('/health');
     return response.data;
   },
