@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { analyzeApi } from '../services/api';
+import { analyzeApi, type StreamMessage } from '../services/api';
 import type { AnalyzeResponse, Card, HistoryRecord } from '../types';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -14,7 +14,12 @@ import {
   FileText,
   Copy,
   Check,
-  Star
+  Star,
+  Key,
+  Eye,
+  EyeOff,
+  FileDown,
+  Zap
 } from 'lucide-react';
 
 type AnalysisMode = 'minecraft' | 'general';
@@ -27,13 +32,30 @@ export default function Analyzer() {
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('high');
   const [maxResults, setMaxResults] = useState(5);
   const [temperature, setTemperature] = useState(0.3);
+  const [streamingEnabled, setStreamingEnabled] = useState(true);
+  
+  const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(true);
   const [copied, setCopied] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
+
+  const buildRequest = () => ({
+    event_text: eventText,
+    analysis_mode: analysisMode,
+    temperature,
+    thinking_enabled: thinkingEnabled,
+    reasoning_effort: reasoningEffort,
+    max_results: maxResults,
+    api_key: apiKey,
+    base_url: baseUrl || undefined,
+  });
 
   const handleAnalyze = async () => {
     if (!eventText.trim()) {
@@ -41,20 +63,67 @@ export default function Analyzer() {
       return;
     }
 
+    if (!apiKey.trim()) {
+      setError('请输入 API Key');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
+    setStreamingText('');
     setRating(null);
 
+    if (streamingEnabled) {
+      await handleStreamAnalyze();
+    } else {
+      await handleNormalAnalyze();
+    }
+  };
+
+  const handleStreamAnalyze = async () => {
+    const tempResult: Partial<AnalyzeResponse> = {
+      analysis: '',
+      retrieved_cards: [],
+      history_records: [],
+      model: ''
+    };
+
+    await analyzeApi.analyzeStream(
+      buildRequest(),
+      (message: StreamMessage) => {
+        switch (message.type) {
+          case 'cards':
+            tempResult.retrieved_cards = message.data || [];
+            break;
+          case 'history':
+            tempResult.history_records = message.data || [];
+            break;
+          case 'chunk':
+            tempResult.analysis = (tempResult.analysis || '') + (message.data || '');
+            setStreamingText(tempResult.analysis);
+            break;
+          case 'done':
+            tempResult.model = message.model || '';
+            setResult(tempResult as AnalyzeResponse);
+            setLoading(false);
+            break;
+          case 'error':
+            setError(message.message || '分析失败');
+            setLoading(false);
+            break;
+        }
+      },
+      (errorMsg: string) => {
+        setError(errorMsg);
+        setLoading(false);
+      }
+    );
+  };
+
+  const handleNormalAnalyze = async () => {
     try {
-      const response = await analyzeApi.analyze({
-        event_text: eventText,
-        analysis_mode: analysisMode,
-        temperature,
-        thinking_enabled: thinkingEnabled,
-        reasoning_effort: reasoningEffort,
-        max_results: maxResults,
-      });
+      const response = await analyzeApi.analyze(buildRequest());
       setResult(response);
     } catch (err: any) {
       setError(err.response?.data?.detail || '分析失败，请稍后重试');
@@ -63,17 +132,15 @@ export default function Analyzer() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExportMarkdown = async () => {
     if (!result) return;
 
     try {
       const blob = await analyzeApi.exportMarkdown({
         event_text: eventText,
-        analysis_mode: analysisMode,
-        temperature,
-        thinking_enabled: thinkingEnabled,
-        reasoning_effort: reasoningEffort,
-        max_results: maxResults,
+        analysis: result.analysis,
+        retrieved_cards: result.retrieved_cards,
+        llm_model: result.model || 'DeepSeek'
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -87,12 +154,36 @@ export default function Analyzer() {
     }
   };
 
+  const handleExportDocx = async () => {
+    if (!result) return;
+
+    try {
+      const blob = await analyzeApi.exportDocx({
+        event_text: eventText,
+        analysis: result.analysis,
+        retrieved_cards: result.retrieved_cards,
+        llm_model: result.model || 'DeepSeek'
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analysis_${new Date().toISOString().slice(0, 10)}.docx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export DOCX failed:', err);
+    }
+  };
+
   const handleCopy = async () => {
     if (!result) return;
     await navigator.clipboard.writeText(result.analysis);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const displayAnalysis = streamingEnabled && loading ? streamingText : result?.analysis;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -154,52 +245,104 @@ export default function Analyzer() {
           </div>
 
           {showSettings && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5 rounded-xl animate-slide-up" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">检索数量</label>
-                <input
-                  type="number"
-                  value={maxResults}
-                  onChange={(e) => setMaxResults(Number(e.target.value))}
-                  min={1}
-                  max={20}
-                  className="input-field"
-                />
+            <div className="space-y-4 p-5 rounded-xl animate-slide-up" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center gap-2 text-sm font-medium text-[var(--accent-amber-light)]">
+                <Key className="w-4 h-4" />
+                API 配置（必填）
               </div>
-              <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">温度参数</label>
-                <input
-                  type="number"
-                  value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))}
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">推理强度</label>
-                <select
-                  value={reasoningEffort}
-                  onChange={(e) => setReasoningEffort(e.target.value as ReasoningEffort)}
-                  className="input-field"
-                >
-                  <option value="low">快速</option>
-                  <option value="medium">中等</option>
-                  <option value="high">深度</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">
+                    API Key <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="input-field pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">API 地址</label>
                   <input
-                    type="checkbox"
-                    checked={thinkingEnabled}
-                    onChange={(e) => setThinkingEnabled(e.target.checked)}
-                    className="w-5 h-5 rounded accent-[var(--accent-amber)]"
+                    type="text"
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    placeholder="https://api.deepseek.com"
+                    className="input-field"
                   />
-                  <span className="text-sm text-[var(--text-secondary)] font-medium">思考模式</span>
-                </label>
+                </div>
+              </div>
+              
+              <div className="decorative-line my-4" />
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">检索数量</label>
+                  <input
+                    type="number"
+                    value={maxResults}
+                    onChange={(e) => setMaxResults(Number(e.target.value))}
+                    min={1}
+                    max={20}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">温度参数</label>
+                  <input
+                    type="number"
+                    value={temperature}
+                    onChange={(e) => setTemperature(Number(e.target.value))}
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-[var(--text-secondary)] mb-2 font-medium">推理强度</label>
+                  <select
+                    value={reasoningEffort}
+                    onChange={(e) => setReasoningEffort(e.target.value as ReasoningEffort)}
+                    className="input-field"
+                  >
+                    <option value="low">快速</option>
+                    <option value="medium">中等</option>
+                    <option value="high">深度</option>
+                  </select>
+                </div>
+                <div className="flex flex-col justify-end gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={streamingEnabled}
+                      onChange={(e) => setStreamingEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[var(--accent-amber)]"
+                    />
+                    <Zap className="w-4 h-4 text-[var(--accent-teal-light)]" />
+                    <span className="text-sm text-[var(--text-secondary)]">流式</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={thinkingEnabled}
+                      onChange={(e) => setThinkingEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[var(--accent-amber)]"
+                    />
+                    <span className="text-sm text-[var(--text-secondary)]">思考</span>
+                  </label>
+                </div>
               </div>
             </div>
           )}
@@ -213,7 +356,7 @@ export default function Analyzer() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  分析中...
+                  {streamingEnabled ? '分析中...' : '分析中...'}
                 </>
               ) : (
                 <>
@@ -222,12 +365,6 @@ export default function Analyzer() {
                 </>
               )}
             </button>
-            {result && (
-              <button onClick={handleExport} className="btn-secondary">
-                <Download className="w-5 h-5" />
-                导出
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -238,31 +375,56 @@ export default function Analyzer() {
         </div>
       )}
 
-      {result && (
+      {(displayAnalysis || result) && (
         <div className="space-y-6 animate-slide-up">
           <div className="glass-panel p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold flex items-center gap-2" style={{ fontFamily: "'Noto Serif SC', serif" }}>
                 <FileText className="w-5 h-5 text-[var(--accent-amber-light)]" />
                 分析结果
-                <span className="tag tag-accent ml-2">
-                  {result.model}
-                </span>
+                {result?.model && (
+                  <span className="tag tag-accent ml-2">
+                    {result.model}
+                  </span>
+                )}
+                {loading && streamingEnabled && (
+                  <span className="tag tag-teal ml-2 animate-pulse">实时生成中</span>
+                )}
               </h3>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-amber-light)] transition-colors"
-              >
-                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                {copied ? '已复制' : '复制'}
-              </button>
+              <div className="flex items-center gap-2">
+                {result && (
+                  <>
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-amber-light)] transition-colors"
+                    >
+                      {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                      {copied ? '已复制' : '复制'}
+                    </button>
+                    <button
+                      onClick={handleExportMarkdown}
+                      className="flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-amber-light)] transition-colors px-2 py-1 rounded-lg hover:bg-[var(--bg-tertiary)]"
+                    >
+                      <Download className="w-4 h-4" />
+                      MD
+                    </button>
+                    <button
+                      onClick={handleExportDocx}
+                      className="flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-amber-light)] transition-colors px-2 py-1 rounded-lg hover:bg-[var(--bg-tertiary)]"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      Word
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
             <div className="markdown-content prose prose-invert max-w-none">
-              <ReactMarkdown>{result.analysis}</ReactMarkdown>
+              <ReactMarkdown>{displayAnalysis || ''}</ReactMarkdown>
             </div>
           </div>
 
-          {result.retrieved_cards.length > 0 && (
+          {result?.retrieved_cards && result.retrieved_cards.length > 0 && (
             <div className="glass-panel p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ fontFamily: "'Noto Serif SC', serif" }}>
                 <BookOpen className="w-5 h-5 text-[var(--accent-amber-light)]" />
@@ -277,7 +439,7 @@ export default function Analyzer() {
             </div>
           )}
 
-          {result.history_records && result.history_records.length > 0 && (
+          {result?.history_records && result.history_records.length > 0 && (
             <div className="glass-panel p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ fontFamily: "'Noto Serif SC', serif" }}>
                 <History className="w-5 h-5 text-[var(--accent-teal-light)]" />
@@ -292,31 +454,33 @@ export default function Analyzer() {
             </div>
           )}
 
-          <div className="glass-panel p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ fontFamily: "'Noto Serif SC', serif" }}>
-              <Star className="w-5 h-5 text-[var(--accent-amber-light)]" />
-              评价分析结果
-            </h3>
-            <div className="flex items-center gap-4">
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
-                    key={value}
-                    onClick={() => setRating(value)}
-                    className={`p-2 rounded-lg transition-all ${rating === value
-                        ? 'bg-[var(--accent-amber)] text-white'
-                        : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
-                      }`}
-                  >
-                    <Star className={`w-5 h-5 ${rating && rating >= value ? 'fill-current' : ''}`} />
-                  </button>
-                ))}
+          {result && (
+            <div className="glass-panel p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ fontFamily: "'Noto Serif SC', serif" }}>
+                <Star className="w-5 h-5 text-[var(--accent-amber-light)]" />
+                评价分析结果
+              </h3>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => setRating(value)}
+                      className={`p-2 rounded-lg transition-all ${rating === value
+                          ? 'bg-[var(--accent-amber)] text-white'
+                          : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
+                        }`}
+                    >
+                      <Star className={`w-5 h-5 ${rating && rating >= value ? 'fill-current' : ''}`} />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-sm text-[var(--text-muted)]">
+                  {rating ? `您选择了 ${rating} 星` : '点击星星评分'}
+                </span>
               </div>
-              <span className="text-sm text-[var(--text-muted)]">
-                {rating ? `您选择了 ${rating} 星` : '点击星星评分'}
-              </span>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

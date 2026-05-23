@@ -7,12 +7,10 @@ import {
   Sparkles,
   Database,
   Activity,
-  AlertCircle,
   Menu,
   X,
   ExternalLink,
-  Settings as SettingsIcon,
-  BookOpen
+  Settings as SettingsIcon
 } from 'lucide-react';
 
 type Tab = 'analyzer' | 'knowledge' | 'settings';
@@ -23,7 +21,6 @@ export default function App() {
   const [health, setHealth] = useState<{
     status: string;
     kb_initialized: boolean;
-    llm_initialized: boolean;
   } | null>(null);
   const [stats, setStats] = useState<{
     total_cards: number;
@@ -67,9 +64,8 @@ export default function App() {
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center relative" style={{ background: 'linear-gradient(135deg, var(--accent-amber) 0%, #b45309 100%)' }}>
-                <BookOpen className="w-5 h-5 text-white" />
-                <div className="absolute inset-0 rounded-xl animate-pulse-glow" style={{ opacity: 0.3 }} />
+              <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center relative" style={{ background: 'linear-gradient(135deg, var(--accent-amber) 0%, #b45309 100%)' }}>
+                <img src="/logo.png" alt="不曾社科" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h1 className="text-lg font-bold gradient-text" style={{ fontFamily: "'Noto Serif SC', serif" }}>不曾社科</h1>
@@ -101,8 +97,8 @@ export default function App() {
       </header>
 
       <aside
-        className={`fixed top-[68px] left-0 bottom-0 w-64 border-r border-[var(--border-subtle)] transform transition-transform z-30 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{ background: 'var(--bg-primary)' }}
+        className={`fixed left-0 bottom-0 w-64 border-r border-[var(--border-subtle)] transform transition-transform z-30 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: 'var(--bg-primary)', top: '76px' }}
       >
         <div className="p-4">
           <div className="decorative-line mb-6" />
@@ -160,17 +156,6 @@ export default function App() {
             </div>
           )}
         </div>
-
-        {health && !health.llm_initialized && (
-          <div className="absolute bottom-4 left-4 right-4 p-3 rounded-xl" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-[var(--accent-amber-light)] mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-[var(--accent-amber-light)]">
-                LLM 未初始化，请检查 API Key 配置
-              </p>
-            </div>
-          </div>
-        )}
       </aside>
 
       {sidebarOpen && (
@@ -180,7 +165,7 @@ export default function App() {
         />
       )}
 
-      <main className="lg:ml-64 pt-24 p-4 md:p-6 min-h-screen">
+      <main className="lg:ml-64 p-4 md:p-6 min-h-screen" style={{ paddingTop: '100px' }}>
         <div className="max-w-5xl mx-auto">
           {activeTab === 'analyzer' && <Analyzer />}
           {activeTab === 'knowledge' && <KnowledgeBase />}
